@@ -1,4 +1,4 @@
-use rlox::vm::{core::{OpCode, Chunk}, util::dissasemble};
+use rlox::vm::{core::{OpCode, Chunk}, util::disassemble};
 fn main() {
 
     let op_code = OpCode::Return; 
@@ -7,5 +7,5 @@ fn main() {
     chunk.write(op_code as u8);
     chunk.write(42);
 
-    dissasemble(&chunk, "test chunk");
+    disassemble(&chunk, "test chunk");
 }

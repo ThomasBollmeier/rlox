@@ -1,12 +1,12 @@
 use super::core::{Chunk, OpCode};
 
-pub fn dissasemble(chunk: &Chunk, name: &str) {
+pub fn disassemble(chunk: &Chunk, name: &str) {
     println!("== {} ==", name);
 
     let mut offset = 0;
 
     while let Some((new_offset, instr)) = 
-        dissasemble_instruction(chunk, offset) {
+        disassemble_instruction(chunk, offset) {
         
         println!("{:04} {}", offset, instr);
 
@@ -14,7 +14,7 @@ pub fn dissasemble(chunk: &Chunk, name: &str) {
     }
 }
 
-fn dissasemble_instruction(chunk: &Chunk, offset: usize) -> Option<(usize, String)> {
+fn disassemble_instruction(chunk: &Chunk, offset: usize) -> Option<(usize, String)> {
     if let Some(op_code_val) = chunk.read(offset) {
         let result: Result<OpCode, String> = op_code_val.try_into();
         match result {
