@@ -1,5 +1,8 @@
+use crate::vm::value::Value;
+
 #[derive(Debug)]
 pub enum OpCode {
+    Constant,
     Return,
 }
 
@@ -9,6 +12,7 @@ impl TryFrom<u8> for OpCode {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
+            v if v == OpCode::Constant as u8 => Ok(OpCode::Constant),
             v if v == OpCode::Return as u8 => Ok(OpCode::Return),
             _ => Err(format!("Unknown opcode {}", value))
         }
@@ -17,7 +21,8 @@ impl TryFrom<u8> for OpCode {
 
 #[derive(Debug)]
 pub struct Chunk {
-    data: Vec<u8>,
+    code: Vec<u8>,
+    values: Vec<Value>,
 }
 
 impl Chunk {
@@ -28,19 +33,33 @@ impl Chunk {
     
     pub fn new_with_capacity(capacity: usize) -> Chunk {
         Chunk {
-            data: Vec::with_capacity(capacity),
+            code: Vec::with_capacity(capacity),
+            values: Vec::new(),
         }
     }
     
     pub fn write(&mut self, byte: u8) {
-        self.data.push(byte);
+        self.code.push(byte);
     }    
 
     pub fn read(&self, offset: usize) -> Option<u8> {
-        match self.data.get(offset) {
+        match self.code.get(offset) {
             Some(&byte) => Some(byte.clone()),
             None => None
         }
     }
+
+    pub fn add_value(&mut self, value: Value) -> usize {
+        self.values.push(value);
+        self.values.len() - 1    
+    }
+
+    pub fn read_value(&self, offset: usize) -> Option<Value> {
+        match self.values.get(offset) {
+            Some(&value) => Some(value.clone()),
+            None => None
+        }
+    }
+
 }
 

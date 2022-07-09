@@ -1,11 +1,13 @@
-use rlox::vm::{core::{OpCode, Chunk}, util::disassemble};
+use rlox::vm::{core::{OpCode, Chunk}, util::disassemble, value::Value};
 fn main() {
 
-    let op_code = OpCode::Return; 
     let mut chunk = Chunk::new();
 
-    chunk.write(op_code as u8);
-    chunk.write(42);
+    let const_idx = chunk.add_value(Value::Number(42.0));
+
+    chunk.write(OpCode::Return as u8);
+    chunk.write(OpCode::Constant as u8);
+    chunk.write(const_idx as u8);
 
     disassemble(&chunk, "test chunk");
 }
