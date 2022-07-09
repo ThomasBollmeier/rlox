@@ -23,6 +23,7 @@ impl TryFrom<u8> for OpCode {
 pub struct Chunk {
     code: Vec<u8>,
     values: Vec<Value>,
+    lines: Vec<i32>, // source code line mapping
 }
 
 impl Chunk {
@@ -35,11 +36,13 @@ impl Chunk {
         Chunk {
             code: Vec::with_capacity(capacity),
             values: Vec::new(),
+            lines: Vec::new(),
         }
     }
     
-    pub fn write(&mut self, byte: u8) {
+    pub fn write(&mut self, byte: u8, line: i32) {
         self.code.push(byte);
+        self.lines.push(line);
     }    
 
     pub fn read(&self, offset: usize) -> Option<u8> {
@@ -59,6 +62,10 @@ impl Chunk {
             Some(&value) => Some(value.clone()),
             None => None
         }
+    }
+
+    pub fn read_line(&self, offset: usize) -> i32 {
+        self.lines[offset]
     }
 
 }
