@@ -1,4 +1,6 @@
-use super::core::{Chunk, OpCode};
+use super::core::OpCode;
+use super::chunk::Chunk;
+
 
 pub fn disassemble(chunk: &Chunk, name: &str) {
     println!("== {} ==", name);
@@ -26,7 +28,8 @@ pub fn disassemble(chunk: &Chunk, name: &str) {
 fn disassemble_instruction(chunk: &Chunk, offset: usize) -> 
     Option<(usize, String, i32)> {
     if let Some(op_code_val) = chunk.read(offset) {
-        let line = chunk.read_line(offset);
+        let op_code_val = op_code_val.clone();
+        let line = chunk.get_line(offset).unwrap();
         let result: Result<OpCode, String> = op_code_val.try_into();
         match result {
             Ok(op_code) => {
@@ -51,7 +54,7 @@ fn disassemble_return(offset: usize) -> Option<(usize, String)> {
 }
 
 fn disassemble_constant(chunk: &Chunk, offset: usize) -> Option<(usize, String)> {
-    let val_idx = chunk.read(offset + 1).unwrap() as usize;
+    let val_idx = chunk.read(offset + 1).unwrap().clone() as usize;
     let value = chunk.read_value(val_idx).unwrap();
     let code = format!("{:<16} {:04} ({})", "OP_CONSTANT", val_idx, value);
     Some((offset + 2, code))
@@ -59,8 +62,9 @@ fn disassemble_constant(chunk: &Chunk, offset: usize) -> Option<(usize, String)>
 
 #[cfg(test)]
 mod tests {
-    use crate::vm::core::{Chunk, OpCode};
+    use crate::vm::core::OpCode;
     use crate::vm::value::Value;
+    use crate::vm::chunk::Chunk;
     use super::*;
     
     #[test]
