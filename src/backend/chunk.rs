@@ -34,10 +34,21 @@ impl Chunk {
         } else {
             self.lines.push((line, 1));
         }
-    }    
+    }
+    
+    pub fn write_long(&mut self, intval: u32, line: i32) {
+        let bytes = intval.to_be_bytes();
+        bytes.into_iter().for_each(|byte| { 
+            self.write(byte, line);
+        });
+    }
 
     pub fn read(&self, offset: usize) -> Option<&u8> {
         self.code.get(offset)
+    }
+
+    pub fn read_n_bytes(&self, offset: usize, n: usize) -> &[u8] {
+        &self.code[offset..(offset + n)]
     }
 
     pub fn add_value(&mut self, value: Value) -> usize {

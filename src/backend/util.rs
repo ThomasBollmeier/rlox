@@ -35,6 +35,7 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) ->
             Ok(op_code) => {
                 let instr = match op_code {
                     OpCode::Constant => disassemble_constant(chunk, offset),
+                    OpCode::ConstantLong => disassemble_constant_long(chunk, offset),
                     OpCode::Return => disassemble_return(offset),
                 };
                 match instr {
@@ -60,11 +61,23 @@ fn disassemble_constant(chunk: &Chunk, offset: usize) -> Option<(usize, String)>
     Some((offset + 2, code))
 }
 
+fn disassemble_constant_long(chunk: &Chunk, offset: usize) -> Option<(usize, String)> {
+    let bytes_slice = chunk.read_n_bytes(offset + 1, 4);
+    let mut bytes: [u8; 4] = [0; 4];
+    for (i, byte) in bytes_slice.iter().enumerate() {
+        bytes[i] = *byte;
+    }
+    let val_idx = u32::from_be_bytes(bytes);
+    let value = chunk.read_value(val_idx as usize).unwrap();
+    let code = format!("{:<16} {:04} ({})", "OP_CONSTANT_LONG", val_idx, value);
+    Some((offset + 5, code))
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::vm::core::OpCode;
-    use crate::vm::value::Value;
-    use crate::vm::chunk::Chunk;
+    use crate::backend::core::OpCode;
+    use crate::backend::value::Value;
+    use crate::backend::chunk::Chunk;
     use super::*;
     
     #[test]
@@ -74,12 +87,18 @@ mod tests {
 
         let fourty_two = chunk.add_value(Value::Number(42.0));
         let twenty_three = chunk.add_value(Value::Number(23.0));
+
+        for i in 2..1000 {
+            chunk.add_value(Value::Number((i as f64).sqrt()));
+        }
     
         chunk.write(OpCode::Constant as u8, 1);
         chunk.write(fourty_two as u8, 1);
         chunk.write(OpCode::Constant as u8, 2);
         chunk.write(twenty_three as u8, 2);
         chunk.write(OpCode::Return as u8, 2);
+        chunk.write(OpCode::ConstantLong as u8, 3);
+        chunk.write_long(625, 3);
         
         disassemble(&chunk, "test chunk");
     }
