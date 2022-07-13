@@ -1,4 +1,4 @@
-use super::value::Value;
+use super::{value::Value, instruction::{Instruction, OpCode}};
 
 #[derive(Debug)]
 pub struct Chunk {
@@ -51,6 +51,15 @@ impl Chunk {
         &self.code[offset..(offset + n)]
     }
 
+    pub fn read_u32(&self, offset: usize) -> u32 {
+        let bytes_slice = self.read_n_bytes(offset, 4);
+        let mut bytes: [u8; 4] = [0; 4];
+        for (i, byte) in bytes_slice.iter().enumerate() {
+            bytes[i] = *byte;
+        }
+        u32::from_be_bytes(bytes) 
+    }
+
     pub fn add_value(&mut self, value: Value) -> usize {
         self.values.push(value);
         self.values.len() - 1    
@@ -71,6 +80,88 @@ impl Chunk {
         }
 
         None
+    }
+
+    pub fn instruction_iter(&self) -> InstructionIter {
+        InstructionIter { 
+            chunk: self, 
+            offset: 0 }
+    } 
+
+}
+
+pub struct InstructionIter<'a> {
+    chunk: &'a Chunk,
+    offset: usize
+}
+
+impl <'a> Iterator for InstructionIter<'a> {
+    
+    type Item = (Instruction, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        
+        let offset = self.offset;
+        
+        let op_code_opt = self.chunk.read(self.offset);
+        self.offset += 1;
+
+        if op_code_opt.is_none() {
+            return None;
+        }
+
+        let op_code = op_code_opt.unwrap().clone();
+        let op_code_res: Result<OpCode, String> = op_code.try_into();
+
+        if op_code_res.is_err() {
+            return None;
+        }
+
+        match op_code_res.unwrap() {
+            OpCode::Constant => {
+                let value_idx_opt = self.chunk.read(self.offset);
+                self.offset += 1;
+                match value_idx_opt {
+                    Some(value_idx) => 
+                    Some((Instruction::Constant { value_idx: value_idx.clone() }, offset)),
+                    None => None
+                } 
+            },
+            OpCode::ConstantLong => {
+                let value_idx = self.chunk.read_u32(self.offset);
+                self.offset += 4;
+                Some((Instruction::ConstantLong { value_idx: value_idx.clone() }, 
+                    offset))
+            },
+            OpCode::Return => {
+                Some((Instruction::Return, offset))
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::backend::instruction::OpCode;
+    use crate::backend::chunk::Chunk;
+    
+    #[test]
+    fn iterate_chunk() {
+     
+        let mut chunk = Chunk::new();
+    
+        chunk.write(OpCode::Constant as u8, 1);
+        chunk.write(42, 1);
+        chunk.write(OpCode::Constant as u8, 2);
+        chunk.write(23, 2);
+        chunk.write(OpCode::Return as u8, 2);
+        chunk.write(OpCode::ConstantLong as u8, 3);
+        chunk.write_long(625, 3);
+        
+        
+        for (instr, offset) in chunk.instruction_iter() {
+            println!("{:04} {}", offset, instr);
+        }
     }
 
 }
