@@ -43,6 +43,22 @@ impl Chunk {
         });
     }
 
+    pub fn write_instruction(&mut self, instr: Instruction, line: i32) {
+        match instr { 
+            Instruction::Constant { value_idx } => {
+                self.write(OpCode::Constant as u8, line);
+                self.write(value_idx, line);
+            },
+            Instruction::ConstantLong { value_idx } => {
+                self.write(OpCode::ConstantLong as u8, line);
+                self.write_long(value_idx, line);
+            },
+            Instruction::Return => {
+                self.write(OpCode::Return as u8, line);
+            },
+        }
+    }
+
     pub fn read(&self, offset: usize) -> Option<&u8> {
         self.code.get(offset)
     }
@@ -142,22 +158,17 @@ impl <'a> Iterator for InstructionIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::instruction::OpCode;
+    use crate::backend::instruction::Instruction::*;
     use crate::backend::chunk::Chunk;
     
     #[test]
     fn iterate_chunk() {
      
         let mut chunk = Chunk::new();
-    
-        chunk.write(OpCode::Constant as u8, 1);
-        chunk.write(42, 1);
-        chunk.write(OpCode::Constant as u8, 2);
-        chunk.write(23, 2);
-        chunk.write(OpCode::Return as u8, 2);
-        chunk.write(OpCode::ConstantLong as u8, 3);
-        chunk.write_long(625, 3);
-        
+        chunk.write_instruction(Constant{ value_idx: 42 }, 1);
+        chunk.write_instruction(Constant { value_idx: 23 }, 2);
+        chunk.write_instruction(Return, 2);
+        chunk.write_instruction(ConstantLong { value_idx: 625 }, 3);    
         
         for (instr, offset) in chunk.instruction_iter() {
             println!("{:04} {}", offset, instr);
