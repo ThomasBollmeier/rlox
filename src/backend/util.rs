@@ -26,7 +26,7 @@ pub fn disassemble(chunk: &Chunk, name: &str) {
 
 }
 
-fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
+pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
     match instr {
         Instruction::Constant { value_idx } => 
             disassemble_constant(chunk, value_idx),
