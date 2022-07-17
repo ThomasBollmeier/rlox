@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction};
 
 pub enum InterpretResult {
@@ -8,6 +10,7 @@ pub enum InterpretResult {
 
 pub struct VM {
     chunk: Chunk,
+    stack: RefCell<Vec<Value>>,
 }
 
 impl VM {
@@ -18,6 +21,7 @@ impl VM {
     pub fn new_with_chunk(chunk: Chunk) -> VM {
         VM {
             chunk,
+            stack: RefCell::new(Vec::new()),
         }
     }
 
@@ -29,38 +33,101 @@ impl VM {
         self.chunk.add_value(value)
     }
 
-    pub fn run(&mut self) -> InterpretResult {
+    pub fn run(&self) -> InterpretResult {
+
         for (instr, _) in self.chunk.instruction_iter() {
             
             if cfg!(trace_run) {
+                self.show_stack();
                 println!("{}", disassemble_instruction(&self.chunk, &instr));
             }
 
-            match instr {
-                Instruction::Return => return InterpretResult::Ok,
+            let result = match instr {
+                Instruction::Return => 
+                    self.interpret_return(),
                 Instruction::Constant { value_idx } => 
-                    self.interpret_constant(value_idx),
+                    self.interpret_constant(value_idx as usize),
                 Instruction::ConstantLong { value_idx } => 
-                    self.interpret_constant_long(value_idx),
+                    self.interpret_constant(value_idx as usize),
+                Instruction::Negate => 
+                    self.interpret_negate(),
+                Instruction::Add |
+                Instruction::Subtract |
+                Instruction::Multiply |
+                Instruction::Divide => 
+                    self.interpret_binary(&instr),
+            };
+
+            if let Some(result) = result {
+                return result;
             }
+
         }
         InterpretResult::Ok
     }
 
-    fn interpret_constant(&self, value_idx: u8) {
-        let value = 
-            self.chunk
-                .read_value(value_idx as usize)
-                .unwrap();
-        println!("{}", value);
+    fn show_stack(&self) {
+        println!();
+        println!("=== STACK TOP ===");
+        for value in self.stack.borrow().iter().rev() {
+            println!("{}", value);
+        }
+        println!("=== STACK BOTTOM ===");
     }
 
-    fn interpret_constant_long(&self, value_idx: u32) {
+    fn push(&self, value: &Value) {
+        self.stack.borrow_mut().push(value.clone());
+    }
+
+    fn pop(&self) -> Value {
+        self.stack.borrow_mut().pop().unwrap()
+    }
+
+    fn interpret_return(&self) -> Option<InterpretResult> {
+
+        let value = self.pop();
+        println!("{}", value);
+
+        Some(InterpretResult::Ok)
+    }
+
+    fn interpret_constant(&self, value_idx: usize) -> Option<InterpretResult> {
         let value = 
             self.chunk
-                .read_value(value_idx as usize)
+                .read_value(value_idx)
                 .unwrap();
-        println!("{}", value);
+        self.push(value);
+        None
+    }
+
+    fn interpret_negate(&self) -> Option<InterpretResult> {
+        let Value::Number(x) = self.pop();
+        self.push(&Value::Number(-x));
+        None
+    }
+
+    fn interpret_binary(&self, instr: &Instruction) -> Option<InterpretResult> {
+        let Value::Number(b) = self.pop();
+        let Value::Number(a) = self.pop();
+        match instr {
+            Instruction::Add => {
+                self.push(&Value::Number(a + b));
+                None
+            },
+            Instruction::Subtract => {
+                self.push(&Value::Number(a - b));
+                None
+            },
+            Instruction::Multiply => {
+                self.push(&Value::Number(a * b));
+                None
+            },
+            Instruction::Divide => {
+                self.push(&Value::Number(a / b));
+                None
+            },
+            _ => Some(InterpretResult::RuntimeError),
+        }
     }
 
 }
@@ -85,6 +152,89 @@ mod tests {
 
         vm.run();
 
+    }
+
+    #[test]
+    fn run_negation() {
+
+        let mut vm = VM::new();
+        
+        let val = vm.add_value(Value::Number(42.)) as u8;
+        
+        vm.add_instruction(Constant {value_idx: val}, 123);
+        vm.add_instruction(Negate, 123);
+        vm.add_instruction(Return, 123);
+
+        vm.run();
+        
+    }
+
+    #[test]
+    fn run_addition() {
+
+        let mut vm = VM::new();
+        
+        let val1 = vm.add_value(Value::Number(1.)) as u8;
+        let val2 = vm.add_value(Value::Number(2.)) as u8;
+   
+        vm.add_instruction(Constant {value_idx: val1}, 123);
+        vm.add_instruction(Constant {value_idx: val2}, 123);
+        vm.add_instruction(Add, 123);
+        vm.add_instruction(Return, 123);
+
+        vm.run();
+        
+    }
+
+    #[test]
+    fn run_subtraction() {
+
+        let mut vm = VM::new();
+        
+        let val1 = vm.add_value(Value::Number(1.)) as u8;
+        let val2 = vm.add_value(Value::Number(2.)) as u8;
+   
+        vm.add_instruction(Constant {value_idx: val1}, 123);
+        vm.add_instruction(Constant {value_idx: val2}, 123);
+        vm.add_instruction(Subtract, 123);
+        vm.add_instruction(Return, 123);
+
+        vm.run();
+        
+    }
+
+    #[test]
+    fn run_multiplication() {
+
+        let mut vm = VM::new();
+        
+        let val1 = vm.add_value(Value::Number(2.)) as u8;
+        let val2 = vm.add_value(Value::Number(3.)) as u8;
+   
+        vm.add_instruction(Constant {value_idx: val1}, 123);
+        vm.add_instruction(Constant {value_idx: val2}, 123);
+        vm.add_instruction(Multiply, 123);
+        vm.add_instruction(Return, 123);
+
+        vm.run();
+        
+    }
+
+    #[test]
+    fn run_division() {
+
+        let mut vm = VM::new();
+        
+        let val1 = vm.add_value(Value::Number(2.)) as u8;
+        let val2 = vm.add_value(Value::Number(3.)) as u8;
+   
+        vm.add_instruction(Constant {value_idx: val1}, 123);
+        vm.add_instruction(Constant {value_idx: val2}, 123);
+        vm.add_instruction(Divide, 123);
+        vm.add_instruction(Return, 123);
+
+        vm.run();
+        
     }
 
 }

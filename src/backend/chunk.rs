@@ -53,6 +53,16 @@ impl Chunk {
                 self.write(OpCode::ConstantLong as u8, line);
                 self.write_long(value_idx, line);
             },
+            Instruction::Negate =>
+                self.write(OpCode::Negate as u8, line),
+            Instruction::Add =>
+                self.write(OpCode::Add as u8, line),
+            Instruction::Subtract =>
+                self.write(OpCode::Subtract as u8, line),
+            Instruction::Multiply =>
+                self.write(OpCode::Multiply as u8, line),
+            Instruction::Divide =>
+                self.write(OpCode::Divide as u8, line),
             Instruction::Return => {
                 self.write(OpCode::Return as u8, line);
             },
@@ -98,15 +108,15 @@ impl Chunk {
         None
     }
 
-    pub fn instruction_iter(&self) -> InstructionIter {
+    pub fn instruction_iter(self: &Chunk) -> InstructionIter {
         InstructionIter { 
-            chunk: self, 
+            chunk: self,
             offset: 0 }
     } 
 
 }
 
-pub struct InstructionIter<'a> {
+pub struct InstructionIter <'a> {
     chunk: &'a Chunk,
     offset: usize
 }
@@ -149,6 +159,16 @@ impl <'a> Iterator for InstructionIter<'a> {
                 Some((Instruction::ConstantLong { value_idx: value_idx.clone() }, 
                     offset))
             },
+            OpCode::Negate =>
+                Some((Instruction::Negate, offset)),
+            OpCode::Add =>
+                Some((Instruction::Add, offset)),
+            OpCode::Subtract =>
+                Some((Instruction::Subtract, offset)),
+            OpCode::Multiply =>
+                Some((Instruction::Multiply, offset)),
+            OpCode::Divide =>
+                Some((Instruction::Divide, offset)),
             OpCode::Return => {
                 Some((Instruction::Return, offset))
             },

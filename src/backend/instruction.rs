@@ -4,6 +4,11 @@ use std::fmt::Display;
 pub enum OpCode {
     Constant,
     ConstantLong,
+    Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
     Return,
 }
 
@@ -15,6 +20,11 @@ impl TryFrom<u8> for OpCode {
         match value {
             v if v == OpCode::Constant as u8 => Ok(OpCode::Constant),
             v if v == OpCode::ConstantLong as u8 => Ok(OpCode::ConstantLong),
+            v if v == OpCode::Negate as u8 => Ok(OpCode::Negate),
+            v if v == OpCode::Add as u8 => Ok(OpCode::Add),
+            v if v == OpCode::Subtract as u8 => Ok(OpCode::Subtract),
+            v if v == OpCode::Multiply as u8 => Ok(OpCode::Multiply),
+            v if v == OpCode::Divide as u8 => Ok(OpCode::Divide),
             v if v == OpCode::Return as u8 => Ok(OpCode::Return),
             _ => Err(format!("Unknown opcode {}", value))
         }
@@ -24,6 +34,11 @@ impl TryFrom<u8> for OpCode {
 pub enum Instruction {
     Constant{value_idx: u8},
     ConstantLong{value_idx: u32},
+    Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
     Return,
 }
 
@@ -35,6 +50,11 @@ impl Display for Instruction {
             value_idx),
             Self::ConstantLong { value_idx } => write!(f, "ConstantLong({})", 
             value_idx),
+            Self::Negate => write!(f, "Negate"),
+            Self::Add => write!(f, "Add"),
+            Self::Subtract => write!(f, "Subtract"),
+            Self::Multiply => write!(f, "Multiply"),
+            Self::Divide => write!(f, "Divide"),
             Self::Return => write!(f, "Return"), 
         }
     }

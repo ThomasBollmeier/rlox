@@ -32,6 +32,16 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             disassemble_constant(chunk, value_idx),
         Instruction::ConstantLong { value_idx } => 
             disassemble_constant_long(chunk, value_idx),
+        Instruction::Negate =>
+            "OP_NEGATE".to_string(),
+        Instruction::Add =>
+            "OP_ADD".to_string(),
+        Instruction::Subtract =>
+            "OP_SUBTRACT".to_string(),
+        Instruction::Multiply =>
+            "OP_MULTIPLY".to_string(),
+        Instruction::Divide =>
+            "OP_DIVIDE".to_string(),
         Instruction::Return => 
             "OP_RETURN".to_string(),
     } 
@@ -50,6 +60,7 @@ fn disassemble_constant_long(chunk: &Chunk, value_idx: &u32) -> String {
 
 #[cfg(test)]
 mod tests {
+
     use crate::backend::instruction::OpCode;
     use crate::backend::value::Value;
     use crate::backend::chunk::Chunk;
