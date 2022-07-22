@@ -19,7 +19,7 @@ pub fn repl() {
 
 }
 
-pub fn run_file(file_path: &str) -> Result<InterpretResult, i32>{
+pub fn run_file(file_path: &str) -> Result<(), i32>{
 
     let mut file = match File::open(Path::new(file_path)) {
         Ok(file) => file,
@@ -39,7 +39,12 @@ pub fn run_file(file_path: &str) -> Result<InterpretResult, i32>{
         }
     }
     
-    Ok(interpret(&source))
+    match interpret(&source) {
+        InterpretResult::Ok => Ok(()),
+        InterpretResult::CompileError => Err(65),
+        InterpretResult::RuntimeError => Err(70),
+    }
+    
 }
 
 fn interpret(source: &str) -> InterpretResult {
