@@ -1,9 +1,9 @@
-use std::str::Chars;
+use std::{str::Chars, collections::VecDeque};
 use super::token::{Token, TokenType};
 
 pub struct Scanner<'a> {
     source_iter: Chars<'a>,
-    lookahead: Option<char>,
+    lookahead: VecDeque<char>,
     current_lexeme: String,
     current_line: i32,
 }
@@ -11,28 +11,32 @@ pub struct Scanner<'a> {
 impl <'a> Scanner<'a> {
 
     pub fn new(source: &str) -> Scanner {
-
-        let mut source_iter = source.chars();
-        let lookahead = source_iter.next();
-
         Scanner {
-            source_iter,
-            lookahead,
+            source_iter: source.chars(),
+            lookahead: VecDeque::new(),
             current_lexeme: String::new(),
             current_line: 1,
         }
     }
 
     fn advance(&mut self) -> Option<char> {
-        let ret = self.lookahead;
-        if ret.is_some() {
-            self.lookahead = self.source_iter.next();
+        if self.lookahead.is_empty() {
+            self.source_iter.next()
+        } else {
+            let ch = self.lookahead.pop_front().unwrap();
+            Some(ch)
         }
-        ret
     }
 
-    fn peek(&self) -> &Option<char> {
-        &self.lookahead
+    fn peek(&mut self, idx: usize) -> Option<char> {
+        while idx + 1 > self.lookahead.len() {
+            if let Some(ch) = self.source_iter.next() {
+                self.lookahead.push_back(ch);
+            } else {
+                return None;
+            }
+        }
+        Some(self.lookahead[idx])
     }
 
     fn scan_token(&mut self, ch: char) -> Token {
@@ -69,8 +73,8 @@ impl <'a> Scanner<'a> {
         one_char_type: TokenType,
         two_char_type: TokenType
     ) -> Token {
-        if let Some(next_ch) = self.peek() {
-            if *next_ch == second_char {
+        if let Some(next_ch) = self.peek(0) {
+            if next_ch == second_char {
                 let next_char = self.advance().unwrap(); 
                 self.current_lexeme.push(next_char);
                 self.make_token(two_char_type)
@@ -89,6 +93,51 @@ impl <'a> Scanner<'a> {
             self.current_line)
     } 
 
+    fn skip_whitespace(&mut self) {
+        loop {
+            let ch_opt = self.peek(0);
+            if ch_opt.is_none() {
+                break;
+            }
+            let ch = ch_opt.unwrap();
+
+            match ch {
+                ' ' | '\t' | '\r' => {
+                    self.advance();
+                },
+                '\n' => {
+                    self.current_line += 1;
+                    self.advance();
+                },
+                '/' => if let Some(ch2) = self.peek(1) {
+                    if ch2 == '/' {
+                        self.skip_line_comment();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                },
+                _ => break,
+            };
+        }
+    }
+
+    fn skip_line_comment(&mut self) {
+        self.advance();
+        self.advance();
+        loop {
+            if let Some(ch) = self.peek(0) {
+                if ch != '\n' {
+                    self.advance();
+                }
+            } else {
+                break;
+            }
+        }
+
+    }
+
 }
 
 impl <'a> Iterator for Scanner<'a> {
@@ -96,6 +145,8 @@ impl <'a> Iterator for Scanner<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
+
+        self.skip_whitespace();
         
         if let Some(ch) = self.advance() {
             let token = self.scan_token(ch);
@@ -115,7 +166,7 @@ mod tests {
 
     #[test]
     fn scan_simple_statement() {
-        let source = "if (a == b) { print a + b;}";
+        let source = "   if (a == b) { print a + b;} // else ";
         let scanner = Scanner::new(&source);
         let tokens: Vec<Token> = scanner.collect();
 
