@@ -125,6 +125,48 @@ impl <'a> Scanner<'a> {
     }
 
     fn scan_number(&mut self) -> Token {
+        let mut dot_found = false;
+        loop {
+            if let Some(ch) = self.peek(0) {
+                if ch.is_numeric() {
+                    self.current_lexeme.push(ch);
+                    self.advance();
+                } else {
+                    if ch == '.' {
+                        dot_found = true;
+                    }
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        if !dot_found {
+            return Token::new(
+                TokenType::Number,
+                self.current_lexeme.clone(),
+                self.current_line);
+        }
+
+        let mut has_fraction = false;
+    
+        if let Some(ch_after_dot) = self.peek(1) {
+            if ch_after_dot.is_numeric() {
+                has_fraction = true;
+            }
+        } 
+
+        if !has_fraction {
+            return Token::new(
+                TokenType::Number,
+                self.current_lexeme.clone(),
+                self.current_line);
+        }
+
+        self.current_lexeme.push('.');
+        self.advance();
+
         loop {
             if let Some(ch) = self.peek(0) {
                 if ch.is_numeric() {
@@ -137,12 +179,14 @@ impl <'a> Scanner<'a> {
                 break;
             }
         }
-        Token::new(
+
+        return Token::new(
             TokenType::Number,
             self.current_lexeme.clone(),
             self.current_line)
+    
     }
-
+    
     fn scan_string(&mut self) -> Token {
         let start_line = self.current_line;
         loop {
@@ -269,6 +313,37 @@ mod tests {
         let tokens = scan("   if (a == b) { print a + b;} // else ");
 
         assert!(!tokens.is_empty());
+    }
+
+    #[test]
+    fn scan_assignment() {
+        let source = "var answer = 42.0;";
+        
+        let tokens: Vec<Token> = scan(source);
+
+        assert!(!tokens.is_empty());
+
+        assert_eq!(
+            tokens[0],
+            Token::new(Var, "var".to_string(), 1)
+        );
+        assert_eq!(
+            tokens[1],
+            Token::new(Identifier, "answer".to_string(), 1)
+        );
+        assert_eq!(
+            tokens[2],
+            Token::new(Equal, "=".to_string(), 1)
+        );
+        assert_eq!(
+            tokens[3],
+            Token::new(Number, "42.0".to_string(), 1)
+        );
+        assert_eq!(
+            tokens[4],
+            Token::new(Semicolon, ";".to_string(), 1)
+        );
+        
     }
 
     #[test]
