@@ -1,3 +1,4 @@
+#[derive(PartialEq, Debug)]
 pub struct Token {
     _token_type: TokenType,
     _lexeme: String,
@@ -16,6 +17,7 @@ impl Token {
 
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TokenType {
     // single-character tokens:
     LeftParen,
