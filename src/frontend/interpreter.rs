@@ -1,5 +1,5 @@
 use std::{io::{self, Read}, path::Path, fs::File};
-use crate::backend::InterpretResult;
+use crate::{backend::InterpretResult, frontend::compiler::{self, Compiler}};
 
 pub fn repl() {
 
@@ -48,6 +48,14 @@ pub fn run_file(file_path: &str) -> Result<(), i32>{
 }
 
 fn interpret(source: &str) -> InterpretResult {
-    println!("{}", source);
+
+    let mut compiler = Compiler::new(source);
+
+    if !compiler.compile() {
+        return InterpretResult::CompileError;
+    }  
+
+    //Run VM...
+
     InterpretResult::Ok
 }

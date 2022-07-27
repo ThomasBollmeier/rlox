@@ -1,18 +1,30 @@
 #[derive(PartialEq, Debug, Clone)]
 pub struct Token {
-    _token_type: TokenType,
-    _lexeme: String,
-    _line: i32,
+    token_type: TokenType,
+    lexeme: String,
+    line: i32,
 }
 
 impl Token {
 
     pub fn new(token_type: TokenType, lexeme: String, line: i32) -> Token {
         Token { 
-            _token_type: token_type, 
-            _lexeme: lexeme, 
-            _line: line 
+            token_type, 
+            lexeme, 
+            line 
         }
+    }
+
+    pub fn get_token_type(&self) -> TokenType {
+        self.token_type
+    }
+
+    pub fn get_lexeme(&self) -> &str {
+        &self.lexeme
+    }
+
+    pub fn get_line(&self) -> i32 {
+        self.line
     }
 
 }
@@ -63,4 +75,5 @@ pub enum TokenType {
     While,
     // miscellaneous:
     Error,
+    Eof,
 }

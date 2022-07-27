@@ -7,6 +7,7 @@ pub struct Scanner<'a> {
     current_lexeme: String,
     current_line: i32,
     keywords: HashMap<String, TokenType>,
+    at_end: bool,
 }
 
 impl <'a> Scanner<'a> {
@@ -38,6 +39,7 @@ impl <'a> Scanner<'a> {
             current_lexeme: String::new(),
             current_line: 1,
             keywords,
+            at_end: false,
         }
     }
 
@@ -295,8 +297,11 @@ impl <'a> Iterator for Scanner<'a> {
             let token = self.scan_token(ch);
             self.current_lexeme = String::new();
             Some(token)
+        } else if !self.at_end {
+            self.at_end = true;
+            Some(self.make_token(TokenType::Eof))
         } else {
-            return None
+            None
         }
     }
 }
@@ -356,7 +361,7 @@ mod tests {
         
         let tokens: Vec<Token> = scan(source);
 
-        assert!(!tokens.is_empty());
+        assert_eq!(tokens.len(), 13);
 
         assert_eq!(
             tokens[0],
@@ -405,6 +410,10 @@ mod tests {
         assert_eq!(
             tokens[11],
             Token::new(RightBrace, "}".to_string(), 4)
+        );
+        assert_eq!(
+            tokens[12],
+            Token::new(Eof, "".to_string(), 5)
         );
 
     }
