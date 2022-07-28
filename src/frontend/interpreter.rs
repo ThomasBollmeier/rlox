@@ -1,5 +1,5 @@
 use std::{io::{self, Read}, path::Path, fs::File};
-use crate::{backend::InterpretResult, frontend::compiler::{self, Compiler}};
+use crate::{backend::{InterpretResult, chunk::Chunk, vm::VM}, frontend::compiler::Compiler};
 
 pub fn repl() {
 
@@ -50,12 +50,11 @@ pub fn run_file(file_path: &str) -> Result<(), i32>{
 fn interpret(source: &str) -> InterpretResult {
 
     let mut compiler = Compiler::new(source);
+    let mut chunk = Chunk::new();
 
-    if !compiler.compile() {
+    if !compiler.compile(&mut chunk) {
         return InterpretResult::CompileError;
     }  
-
-    //Run VM...
-
-    InterpretResult::Ok
+    
+    VM::new_with_chunk(chunk).run()
 }

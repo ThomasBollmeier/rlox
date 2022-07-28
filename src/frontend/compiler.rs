@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-
+use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value};
 use super::{scanner::Scanner, token::{Token, TokenType}};
 
 pub struct Compiler<'a> {
@@ -24,19 +24,60 @@ impl <'a> Compiler<'a> {
         }
     }
 
-    pub fn compile(&mut self) -> bool {
+    pub fn compile(&mut self, chunk: &mut Chunk) -> bool {
         self.had_error = false;
         self.panic_mode = false;
         
         self.advance();
-        //self.expression();
+        self.expression(chunk);
         self.consume(TokenType::Eof, "expect end of expression.");
+        self.end_compiler(chunk);
         
         !self.had_error
     }
 
-    fn _expression(&mut self) {
-        todo!("implement...");
+    fn expression(&mut self, _chunk: &mut Chunk) {
+        //todo!("implement...");
+    }
+
+    fn _number(&self, chunk: &mut Chunk) {
+        if let Some(token) = &self.previous {
+            let x = token.get_lexeme().parse::<f64>().unwrap();
+            let value = Value::Number(x);
+            let value_idx = chunk.add_value(value);
+            self._emit_constant(chunk, value_idx);
+        } 
+    }
+
+    fn _grouping(&mut self, chunk: &mut Chunk) {
+        self.expression(chunk);
+        self.consume(TokenType::RightParen, "Expect ')' after expression.");
+    }
+
+    fn end_compiler(&self, chunk: &mut Chunk) {
+        self.emit_return(chunk);
+    }
+
+    fn emit_return(&self, chunk: &mut Chunk) {
+        self.emit_instruction(chunk, Instruction::Return);
+    }
+
+    fn _emit_constant(&self, chunk: &mut Chunk, value_idx: usize) {
+        let instr = if value_idx < 256 {
+            Instruction::Constant { value_idx: value_idx as u8 }
+        } else {
+            Instruction::ConstantLong { value_idx: value_idx as u32 }
+        };
+        self.emit_instruction(chunk, instr);
+    }
+
+    fn emit_instruction(&self, chunk: &mut Chunk, instr: Instruction) {
+        let line = if let Some(token) = &self.previous {
+            token.get_line()
+        } else {
+            1
+        };
+        chunk.write_instruction(instr, line);
     }
 
     fn consume(&mut self, expected_type: TokenType, message: &str) {
