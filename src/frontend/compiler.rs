@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value};
-use super::{scanner::Scanner, token::{Token, TokenType}};
+use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules}};
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
@@ -9,19 +9,36 @@ pub struct Compiler<'a> {
     current: Option<Token>,
     had_error: bool,
     panic_mode: bool,
+    parse_rules: ParseRules,
 }
 
 impl <'a> Compiler<'a> {
 
     pub fn new(source: &str) -> Compiler {
-        Compiler { 
+        let mut ret = Compiler { 
             scanner: Scanner::new(source),
             lookahead: VecDeque::new(),
             previous: None,
             current: None,
             had_error: false, 
             panic_mode: false,
-        }
+            parse_rules: ParseRules::new(),
+        };
+
+        ret.init_parse_rules();
+
+        ret
+    }
+
+    fn init_parse_rules(&mut self) {
+
+        self.parse_rules.register(
+            TokenType::LeftParen,
+            Some(|comp, chunk| comp.grouping(chunk)),
+            None,
+            Precedence::None
+        );
+
     }
 
     pub fn compile(&mut self, chunk: &mut Chunk) -> bool {
@@ -36,8 +53,8 @@ impl <'a> Compiler<'a> {
         !self.had_error
     }
 
-    fn expression(&mut self, _chunk: &mut Chunk) {
-        //todo!("implement...");
+    fn expression(&mut self, chunk: &mut Chunk) {
+        self.parse_precedence(Precedence::Assignment, chunk);
     }
 
     fn _number(&self, chunk: &mut Chunk) {
@@ -49,9 +66,46 @@ impl <'a> Compiler<'a> {
         } 
     }
 
-    fn _grouping(&mut self, chunk: &mut Chunk) {
+    fn grouping(&mut self, chunk: &mut Chunk) {
         self.expression(chunk);
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
+    }
+
+    fn _binary(&'a mut self, chunk: &mut Chunk) {
+        let operator_type = self.previous.as_ref().unwrap().get_token_type();
+        let next_prec = self.parse_rules
+            .get_parse_rule(&operator_type)
+            .precedence.clone()
+            .increment();
+        
+        // parse right hand side
+        self.parse_precedence(next_prec, chunk);
+
+        match operator_type {
+            TokenType::Plus => self.emit_instruction(chunk, Instruction::Add),
+            TokenType::Minus => self.emit_instruction(chunk, Instruction::Subtract),
+            TokenType::Star => self.emit_instruction(chunk, Instruction::Multiply),
+            TokenType::Slash => self.emit_instruction(chunk, Instruction::Divide),
+            _ => (),
+        }
+    }
+
+    fn _unary(&mut self, chunk: &mut Chunk) {
+        let token_type = &self.previous
+            .as_ref()
+            .unwrap()
+            .get_token_type();
+
+        self.parse_precedence(Precedence::Unary, chunk);
+
+        match token_type {
+            TokenType::Minus => self.emit_instruction(chunk, Instruction::Negate),
+            _ => ()
+        }
+    } 
+
+    fn parse_precedence(&mut self, _prec: Precedence, _chunk: &mut Chunk) {
+
     }
 
     fn end_compiler(&self, chunk: &mut Chunk) {
