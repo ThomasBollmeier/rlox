@@ -29,7 +29,7 @@ impl Token {
 
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Hash, Eq)]
 pub enum TokenType {
     // single-character tokens:
     LeftParen,
