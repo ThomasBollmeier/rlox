@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value};
-use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules}};
+use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
@@ -34,8 +34,38 @@ impl <'a> Compiler<'a> {
 
         self.parse_rules.register(
             TokenType::LeftParen,
-            Some(|comp, chunk| comp.grouping(chunk)),
+            grouping(),
             None,
+            Precedence::None
+        );
+        self.parse_rules.register(
+            TokenType::Minus,
+            unary(),
+            binary(),
+            Precedence::Term
+        );
+        self.parse_rules.register(
+            TokenType::Plus,
+            None,
+            binary(),
+            Precedence::Term
+        );
+        self.parse_rules.register(
+            TokenType::Slash, 
+            None, 
+            binary(), 
+            Precedence::Factor
+        );
+        self.parse_rules.register(
+            TokenType::Star, 
+            None, 
+            binary(), 
+            Precedence::Factor
+        );
+        self.parse_rules.register(
+            TokenType::Number,
+            number(), 
+            None, 
             Precedence::None
         );
 
@@ -57,12 +87,12 @@ impl <'a> Compiler<'a> {
         self.parse_precedence(Precedence::Assignment, chunk);
     }
 
-    fn _number(&self, chunk: &mut Chunk) {
+    fn number(&self, chunk: &mut Chunk) {
         if let Some(token) = &self.previous {
             let x = token.get_lexeme().parse::<f64>().unwrap();
             let value = Value::Number(x);
             let value_idx = chunk.add_value(value);
-            self._emit_constant(chunk, value_idx);
+            self.emit_constant(chunk, value_idx);
         } 
     }
 
@@ -71,7 +101,7 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
 
-    fn _binary(&'a mut self, chunk: &mut Chunk) {
+    fn binary(&mut self, chunk: &mut Chunk) {
         let operator_type = self.previous.as_ref().unwrap().get_token_type();
         let next_prec = self.parse_rules
             .get_parse_rule(&operator_type)
@@ -90,7 +120,7 @@ impl <'a> Compiler<'a> {
         }
     }
 
-    fn _unary(&mut self, chunk: &mut Chunk) {
+    fn unary(&mut self, chunk: &mut Chunk) {
         let token_type = &self.previous
             .as_ref()
             .unwrap()
@@ -104,7 +134,38 @@ impl <'a> Compiler<'a> {
         }
     } 
 
-    fn parse_precedence(&mut self, _prec: Precedence, _chunk: &mut Chunk) {
+    fn parse_precedence(&mut self, prec: Precedence, chunk: &mut Chunk) {
+        self.advance();
+        let token_type = &self.previous.as_ref().unwrap().get_token_type();
+        let prefix_opt = self.parse_rules.get_parse_rule(token_type).prefix;
+
+        if prefix_opt.is_none() {
+            self.error("Expect expression.");
+            return;
+        }
+
+        let prefix = prefix_opt.unwrap();
+        prefix(self, chunk);
+
+        while let Some(token) = &self.current {
+            let token_type = token.get_token_type();
+            let curr_prec = self.parse_rules
+                .get_parse_rule(&token_type)
+                .precedence;
+
+            if curr_prec < prec {
+                break;
+            }
+
+            self.advance();
+
+            let infix = self.parse_rules
+                .get_parse_rule(&token_type)
+                .infix
+                .unwrap();
+
+            infix(self, chunk);
+        }
 
     }
 
@@ -116,7 +177,7 @@ impl <'a> Compiler<'a> {
         self.emit_instruction(chunk, Instruction::Return);
     }
 
-    fn _emit_constant(&self, chunk: &mut Chunk, value_idx: usize) {
+    fn emit_constant(&self, chunk: &mut Chunk, value_idx: usize) {
         let instr = if value_idx < 256 {
             Instruction::Constant { value_idx: value_idx as u8 }
         } else {
@@ -166,7 +227,7 @@ impl <'a> Compiler<'a> {
         self.error_at(&self.current.clone(), message);     
     }
 
-    fn _error(&mut self, message: &str) {
+    fn error(&mut self, message: &str) {
         self.error_at(&self.previous.clone(), message);
     }
 
@@ -211,4 +272,20 @@ impl <'a> Compiler<'a> {
         Some(self.lookahead[idx].clone())
     }
 
+}
+
+fn grouping() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.grouping(chunk))
+}
+
+fn binary() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.binary(chunk))
+}
+
+fn unary() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.unary(chunk))
+}
+
+fn number() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.number(chunk))
 }

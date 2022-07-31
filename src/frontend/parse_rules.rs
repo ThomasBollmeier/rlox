@@ -4,7 +4,7 @@ use crate::backend::chunk::Chunk;
 
 use super::{token::TokenType, compiler::Compiler};
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub enum Precedence {
     None,
     Assignment,
@@ -90,7 +90,13 @@ impl ParseRules {
     }
 
     pub fn get_parse_rule(&self, token_type: &TokenType) -> &ParseRule {
-        self.rules.get(token_type).unwrap()
+        self.rules.get(token_type).unwrap_or(
+            &ParseRule{
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            }
+        )
     }
 }
 
