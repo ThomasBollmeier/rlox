@@ -8,6 +8,7 @@ pub fn repl() {
 
     loop {
         print!("> ");
+        line.clear();
         match stdin.read_line(&mut line) {
             Ok(_) => {
                 interpret(&line);
