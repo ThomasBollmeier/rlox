@@ -35,14 +35,14 @@ impl VM {
 
     pub fn run(&self) -> InterpretResult {
 
-        for (instr, _) in self.chunk.instruction_iter() {
+        for (instr, offset) in self.chunk.instruction_iter() {
             
             if cfg!(trace_run) {
                 self.show_stack();
                 println!("{}", disassemble_instruction(&self.chunk, &instr));
             }
 
-            let result = match instr {
+            let result = match  instr {
                 Instruction::Return => 
                     self.interpret_return(),
                 Instruction::Constant { value_idx } => 
@@ -50,12 +50,12 @@ impl VM {
                 Instruction::ConstantLong { value_idx } => 
                     self.interpret_constant(value_idx as usize),
                 Instruction::Negate => 
-                    self.interpret_negate(),
+                    self.interpret_negate(self.chunk.get_line(offset).unwrap_or(1)),
                 Instruction::Add |
                 Instruction::Subtract |
                 Instruction::Multiply |
                 Instruction::Divide => 
-                    self.interpret_binary(&instr),
+                    self.interpret_binary(&instr, self.chunk.get_line(offset).unwrap_or(1)),
             };
 
             if let Some(result) = result {
@@ -83,6 +83,20 @@ impl VM {
         self.stack.borrow_mut().pop().unwrap()
     }
 
+    fn peek(&self, distance: usize) -> Option<Value> {
+        let stack = self.stack.borrow();
+        let index = stack.len() - distance - 1;
+        match stack.get(index) {
+            Some(value) => Some(value.clone()),
+            None => None,
+        } 
+    }
+
+    fn print_runtime_error(&self, line: i32, message: &str) {
+        eprintln!("{}", message);
+        eprintln!("[line {}] in script", line);
+    }
+
     fn interpret_return(&self) -> Option<InterpretResult> {
 
         let value = self.pop();
@@ -100,15 +114,42 @@ impl VM {
         None
     }
 
-    fn interpret_negate(&self) -> Option<InterpretResult> {
-        let Value::Number(x) = self.pop();
-        self.push(&Value::Number(-x));
-        None
+    fn interpret_negate(&self, line: i32) -> Option<InterpretResult> {
+        if let Some(value) = self.peek(0) {
+            if let Value::Number(x) = value {
+                self.pop();
+                self.push(&Value::Number(-x));
+                None
+            } else {
+                self.print_runtime_error(line, "Operand must be a number.");
+                Some(InterpretResult::RuntimeError)    
+            }
+        } else {
+            Some(InterpretResult::RuntimeError)
+        }
+
     }
 
-    fn interpret_binary(&self, instr: &Instruction) -> Option<InterpretResult> {
-        let Value::Number(b) = self.pop();
-        let Value::Number(a) = self.pop();
+    fn interpret_binary(&self, instr: &Instruction, line: i32) -> Option<InterpretResult> {
+        
+        let val_b = self.peek(0).unwrap();
+        let val_a = self.peek(1).unwrap();
+        let a: f64;
+        let b: f64;
+
+        match (val_a, val_b) {
+            (Value::Number(aa), Value::Number(bb)) => {
+                (a, b) = (aa, bb);
+            },
+            _ => {
+                self.print_runtime_error(line, "Operands must be numbers.");
+                return Some(InterpretResult::RuntimeError);
+            },
+        }
+
+        self.pop();
+        self.pop();
+
         match instr {
             Instruction::Add => {
                 self.push(&Value::Number(a + b));
@@ -176,6 +217,23 @@ mod tests {
         
         let val1 = vm.add_value(Value::Number(1.)) as u8;
         let val2 = vm.add_value(Value::Number(2.)) as u8;
+   
+        vm.add_instruction(Constant {value_idx: val1}, 123);
+        vm.add_instruction(Constant {value_idx: val2}, 123);
+        vm.add_instruction(Add, 123);
+        vm.add_instruction(Return, 123);
+
+        vm.run();
+        
+    }
+
+    #[test]
+    fn run_addition_err() {
+
+        let mut vm = VM::new();
+        
+        let val1 = vm.add_value(Value::Number(1.)) as u8;
+        let val2 = vm.add_value(Value::Bool(true)) as u8;
    
         vm.add_instruction(Constant {value_idx: val1}, 123);
         vm.add_instruction(Constant {value_idx: val2}, 123);
