@@ -3,6 +3,7 @@ use std::fmt::{Display, Debug};
 pub enum Value {
     Number(f64),
     Bool(bool),
+    Nil,
 }
 
 impl Display for Value {
@@ -11,6 +12,7 @@ impl Display for Value {
         match &self {
             Self::Number(value) => write!(f, "{}", value),
             Self::Bool(value) => write!(f, "{}", value),
+            Self::Nil => write!(f, "nil"),
         }
     }
 }
@@ -32,6 +34,7 @@ impl Clone for Value {
         match self {
             Self::Number(val) => Self::Number(val.clone()),
             Self::Bool(val) => Self::Bool(val.clone()),
+            Self::Nil => Self::Nil,
         }
     }
 }

@@ -68,6 +68,24 @@ impl <'a> Compiler<'a> {
             None, 
             Precedence::None
         );
+        self.parse_rules.register(
+            TokenType::Nil,
+            literal(),
+            None,
+            Precedence::None
+        );
+        self.parse_rules.register(
+            TokenType::True,
+            literal(),
+            None,
+            Precedence::None
+        );
+        self.parse_rules.register(
+            TokenType::False,
+            literal(),
+            None,
+            Precedence::None
+        );
 
     }
 
@@ -94,6 +112,17 @@ impl <'a> Compiler<'a> {
             let value_idx = chunk.add_value(value);
             self.emit_constant(chunk, value_idx);
         } 
+    }
+
+    fn literal(&self, chunk: &mut Chunk) {
+        if let Some(token) = &self.previous {
+            match token.get_token_type() {
+                TokenType::Nil => self.emit_instruction(chunk, Instruction::Nil),
+                TokenType::True => self.emit_instruction(chunk, Instruction::True),
+                TokenType::False => self.emit_instruction(chunk, Instruction::False),
+                _ => (),
+            }
+        }
     }
 
     fn grouping(&mut self, chunk: &mut Chunk) {
@@ -288,4 +317,8 @@ fn unary() -> Option<ParseFn> {
 
 fn number() -> Option<ParseFn> {
     Some(|comp, chunk| comp.number(chunk))
+}
+
+fn literal() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.literal(chunk))
 }

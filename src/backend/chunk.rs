@@ -53,6 +53,12 @@ impl Chunk {
                 self.write(OpCode::ConstantLong as u8, line);
                 self.write_long(value_idx, line);
             },
+            Instruction::Nil =>
+                self.write(OpCode::Nil as u8, line),
+            Instruction::True =>
+                self.write(OpCode::True as u8, line),
+            Instruction::False =>
+                self.write(OpCode::False as u8, line),
             Instruction::Negate =>
                 self.write(OpCode::Negate as u8, line),
             Instruction::Add =>
@@ -159,6 +165,12 @@ impl <'a> Iterator for InstructionIter<'a> {
                 Some((Instruction::ConstantLong { value_idx: value_idx.clone() }, 
                     offset))
             },
+            OpCode::Nil => 
+                Some((Instruction::Nil, offset)),
+            OpCode::True => 
+                Some((Instruction::True, offset)),
+            OpCode::False => 
+                Some((Instruction::False, offset)),
             OpCode::Negate =>
                 Some((Instruction::Negate, offset)),
             OpCode::Add =>

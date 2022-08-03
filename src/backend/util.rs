@@ -32,6 +32,12 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             disassemble_constant(chunk, value_idx),
         Instruction::ConstantLong { value_idx } => 
             disassemble_constant_long(chunk, value_idx),
+        Instruction::Nil =>
+            "OP_NIL".to_string(),
+        Instruction::True =>
+            "OP_TRUE".to_string(),
+        Instruction::False =>
+            "OP_FALSE".to_string(),
         Instruction::Negate =>
             "OP_NEGATE".to_string(),
         Instruction::Add =>

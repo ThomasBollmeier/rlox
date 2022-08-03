@@ -49,13 +49,19 @@ impl VM {
                     self.interpret_constant(value_idx as usize),
                 Instruction::ConstantLong { value_idx } => 
                     self.interpret_constant(value_idx as usize),
+                Instruction::Nil =>
+                    self.interpret_nil(),
+                Instruction::True =>
+                    self.interpret_true(),
+                Instruction::False =>
+                    self.interpret_false(),
                 Instruction::Negate => 
-                    self.interpret_negate(self.chunk.get_line(offset).unwrap_or(1)),
+                    self.interpret_negate(self.get_line(offset)),
                 Instruction::Add |
                 Instruction::Subtract |
                 Instruction::Multiply |
                 Instruction::Divide => 
-                    self.interpret_binary(&instr, self.chunk.get_line(offset).unwrap_or(1)),
+                    self.interpret_binary(&instr, self.get_line(offset)),
             };
 
             if let Some(result) = result {
@@ -64,6 +70,10 @@ impl VM {
 
         }
         InterpretResult::Ok
+    }
+
+    fn get_line(&self, offset: usize) -> i32 {
+        self.chunk.get_line(offset).unwrap_or(1)
     }
 
     fn show_stack(&self) {
@@ -114,6 +124,20 @@ impl VM {
         None
     }
 
+    fn interpret_nil(&self) -> Option<InterpretResult> {
+        self.push(&Value::Nil);
+        None
+    }
+
+    fn interpret_true(&self) -> Option<InterpretResult> {
+        self.push(&Value::Bool(true));
+        None
+    }
+
+    fn interpret_false(&self) -> Option<InterpretResult> {
+        self.push(&Value::Bool(false));
+        None
+    }
     fn interpret_negate(&self, line: i32) -> Option<InterpretResult> {
         if let Some(value) = self.peek(0) {
             if let Value::Number(x) = value {
