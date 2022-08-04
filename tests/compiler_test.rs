@@ -20,6 +20,10 @@ fn compile_false() {
     compile_expression("false");
 }
 
+#[test]
+fn compile_comparisons() {
+    compile_expression("!(5 - 4 > 3 * 2 == !nil)");
+}
 
 fn compile_expression(source: &str) {
     let mut compiler = Compiler::new(source);

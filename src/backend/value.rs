@@ -1,5 +1,6 @@
 use std::fmt::{Display, Debug};
 
+#[derive(PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),

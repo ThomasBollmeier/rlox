@@ -57,10 +57,16 @@ impl VM {
                     self.interpret_false(),
                 Instruction::Negate => 
                     self.interpret_negate(self.get_line(offset)),
+                Instruction::Not =>
+                    self.interpret_not(),
+                Instruction::Equal => 
+                    self.interpret_equal(),
                 Instruction::Add |
                 Instruction::Subtract |
                 Instruction::Multiply |
-                Instruction::Divide => 
+                Instruction::Divide |
+                Instruction::Greater |
+                Instruction::Less => 
                     self.interpret_binary(&instr, self.get_line(offset)),
             };
 
@@ -138,6 +144,7 @@ impl VM {
         self.push(&Value::Bool(false));
         None
     }
+
     fn interpret_negate(&self, line: i32) -> Option<InterpretResult> {
         if let Some(value) = self.peek(0) {
             if let Value::Number(x) = value {
@@ -152,6 +159,27 @@ impl VM {
             Some(InterpretResult::RuntimeError)
         }
 
+    }
+
+    fn interpret_not(&self) -> Option<InterpretResult> {
+        let value = self.pop();
+        self.push(&Value::Bool(Self::is_falsey(&value)));
+        None
+    }
+
+    fn interpret_equal(&self) -> Option<InterpretResult> {
+        let b = self.pop();
+        let a = self.pop();
+        self.push(&Value::Bool(a == b));
+        None
+    }
+
+    fn is_falsey(value: &Value) -> bool {
+        match value {
+            Value::Nil => true,
+            Value::Bool(false) => true,
+            _ => false
+        }
     }
 
     fn interpret_binary(&self, instr: &Instruction, line: i32) -> Option<InterpretResult> {
@@ -189,6 +217,14 @@ impl VM {
             },
             Instruction::Divide => {
                 self.push(&Value::Number(a / b));
+                None
+            },
+            Instruction::Greater => {
+                self.push(&Value::Bool(a > b));
+                None
+            },
+            Instruction::Less => {
+                self.push(&Value::Bool(a < b));
                 None
             },
             _ => Some(InterpretResult::RuntimeError),

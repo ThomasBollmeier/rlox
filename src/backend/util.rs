@@ -40,6 +40,14 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             "OP_FALSE".to_string(),
         Instruction::Negate =>
             "OP_NEGATE".to_string(),
+        Instruction::Not =>
+            "OP_NOT".to_string(),
+        Instruction::Equal =>
+            "OP_EQUAL".to_string(),
+        Instruction::Greater =>
+            "OP_GREATER".to_string(),
+        Instruction::Less =>
+            "OP_LESSER".to_string(),
         Instruction::Add =>
             "OP_ADD".to_string(),
         Instruction::Subtract =>

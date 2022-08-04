@@ -61,6 +61,14 @@ impl Chunk {
                 self.write(OpCode::False as u8, line),
             Instruction::Negate =>
                 self.write(OpCode::Negate as u8, line),
+            Instruction::Not =>
+                self.write(OpCode::Not as u8, line),
+            Instruction::Equal =>
+                self.write(OpCode::Equal as u8, line),
+            Instruction::Greater =>
+                self.write(OpCode::Greater as u8, line),
+            Instruction::Less =>
+                self.write(OpCode::Less as u8, line),
             Instruction::Add =>
                 self.write(OpCode::Add as u8, line),
             Instruction::Subtract =>
@@ -173,6 +181,14 @@ impl <'a> Iterator for InstructionIter<'a> {
                 Some((Instruction::False, offset)),
             OpCode::Negate =>
                 Some((Instruction::Negate, offset)),
+            OpCode::Not =>
+                Some((Instruction::Not, offset)),
+            OpCode::Equal =>
+                Some((Instruction::Equal, offset)),
+            OpCode::Greater =>
+                Some((Instruction::Greater, offset)),
+            OpCode::Less =>
+                Some((Instruction::Less, offset)),
             OpCode::Add =>
                 Some((Instruction::Add, offset)),
             OpCode::Subtract =>

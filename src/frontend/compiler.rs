@@ -86,6 +86,54 @@ impl <'a> Compiler<'a> {
             None,
             Precedence::None
         );
+        self.parse_rules.register(
+            TokenType::Bang, 
+            unary(), 
+            None, 
+            Precedence::None
+        );
+        self.parse_rules.register(
+            TokenType::BangEqual, 
+            None, 
+            binary(), 
+            Precedence::Equality
+        );
+        self.parse_rules.register(
+            TokenType::EqualEqual, 
+            None, 
+            binary(), 
+            Precedence::Equality
+        );
+        self.parse_rules.register(
+            TokenType::Greater, 
+            None, 
+            binary(), 
+            Precedence::Comparison
+        );
+        self.parse_rules.register(
+            TokenType::Greater, 
+            None, 
+            binary(), 
+            Precedence::Comparison
+        );
+        self.parse_rules.register(
+            TokenType::GreaterEqual, 
+            None, 
+            binary(), 
+            Precedence::Comparison
+        );
+        self.parse_rules.register(
+            TokenType::Less, 
+            None, 
+            binary(), 
+            Precedence::Comparison
+        );
+        self.parse_rules.register(
+            TokenType::LessEqual, 
+            None, 
+            binary(), 
+            Precedence::Comparison
+        );
 
     }
 
@@ -145,6 +193,21 @@ impl <'a> Compiler<'a> {
             TokenType::Minus => self.emit_instruction(chunk, Instruction::Subtract),
             TokenType::Star => self.emit_instruction(chunk, Instruction::Multiply),
             TokenType::Slash => self.emit_instruction(chunk, Instruction::Divide),
+            TokenType::BangEqual => {
+                self.emit_instruction(chunk, Instruction::Equal);
+                self.emit_instruction(chunk, Instruction::Not);
+            },
+            TokenType::EqualEqual => self.emit_instruction(chunk, Instruction::Equal),
+            TokenType::Greater => self.emit_instruction(chunk, Instruction::Greater),
+            TokenType::GreaterEqual => {
+                self.emit_instruction(chunk, Instruction::Less);
+                self.emit_instruction(chunk, Instruction::Not);
+            },
+            TokenType::Less => self.emit_instruction(chunk, Instruction::Less),
+            TokenType::LessEqual => {
+                self.emit_instruction(chunk, Instruction::Greater);
+                self.emit_instruction(chunk, Instruction::Not);
+            },
             _ => (),
         }
     }
@@ -159,6 +222,7 @@ impl <'a> Compiler<'a> {
 
         match token_type {
             TokenType::Minus => self.emit_instruction(chunk, Instruction::Negate),
+            TokenType::Bang => self.emit_instruction(chunk, Instruction::Not),
             _ => ()
         }
     } 
