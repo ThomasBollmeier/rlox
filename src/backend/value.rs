@@ -5,6 +5,7 @@ pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
+    Str(String),
 }
 
 impl Display for Value {
@@ -14,6 +15,7 @@ impl Display for Value {
             Self::Number(value) => write!(f, "{}", value),
             Self::Bool(value) => write!(f, "{}", value),
             Self::Nil => write!(f, "nil"),
+            Self::Str(value) => write!(f, "{}", value),
         }
     }
 }
@@ -25,10 +27,6 @@ impl Debug for Value {
     }
 }
 
-impl Copy for Value {
-    
-}
-
 impl Clone for Value {
 
     fn clone(&self) -> Self {
@@ -36,6 +34,7 @@ impl Clone for Value {
             Self::Number(val) => Self::Number(val.clone()),
             Self::Bool(val) => Self::Bool(val.clone()),
             Self::Nil => Self::Nil,
+            Self::Str(val) => Self::Str(val.clone()),
         }
     }
 }
