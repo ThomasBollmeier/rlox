@@ -1,7 +1,8 @@
 use std::cell::RefCell;
 
-use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction};
+use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef};
 
+#[derive(Debug, PartialEq)]
 pub enum InterpretResult {
     Ok,
     CompileError,
@@ -186,12 +187,22 @@ impl VM {
         
         let val_b = self.peek(0).unwrap();
         let val_a = self.peek(1).unwrap();
-        let a: f64;
-        let b: f64;
+        let mut a: f64 = 0.0;
+        let mut b: f64 = 0.0;
+        let mut new_string_opt: Option<HeapRef<String>> = None;
 
         match (val_a, val_b) {
             (Value::Number(aa), Value::Number(bb)) => {
                 (a, b) = (aa, bb);
+            },
+            (Value::Str(a_ref), Value::Str(b_ref)) => {
+                match instr { 
+                    Instruction::Add => new_string_opt = Some(a_ref.concat(&b_ref)),
+                    _ => {
+                        self.print_runtime_error(line, "Operator not supported for strings.");
+                        return Some(InterpretResult::RuntimeError);
+                    },
+                }
             },
             _ => {
                 self.print_runtime_error(line, "Operands must be numbers.");
@@ -204,7 +215,11 @@ impl VM {
 
         match instr {
             Instruction::Add => {
-                self.push(&Value::Number(a + b));
+                if new_string_opt.is_none() {
+                    self.push(&Value::Number(a + b));
+                } else {
+                    self.push(&Value::Str(new_string_opt.unwrap()));
+                }
                 None
             },
             Instruction::Subtract => {

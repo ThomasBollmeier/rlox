@@ -48,7 +48,7 @@ pub fn run_file(file_path: &str) -> Result<(), i32>{
     
 }
 
-fn interpret(source: &str) -> InterpretResult {
+pub fn interpret(source: &str) -> InterpretResult {
 
     let mut compiler = Compiler::new(source);
     let mut chunk = Chunk::new();

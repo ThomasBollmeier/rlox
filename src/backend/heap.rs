@@ -1,23 +1,51 @@
-use std::{marker::PhantomData, any::Any, ops::{Deref, DerefMut}};
+use std::{marker::PhantomData, any::Any, rc::Rc, cell::RefCell, fmt::Display};
 
 pub trait HeapObject {
     fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 struct HeapEntry {
     object: Box<dyn HeapObject>,
 }
 
-pub struct HeapRef<T> {
+#[derive(Clone)]
+pub struct HeapRef<T: HeapObject> {
     index: usize,
+    heap_manager: Rc<RefCell<HeapManager>>,
     _marker: PhantomData<T>,
-} 
+}
+
+impl <T: HeapObject> HeapRef<T> {
+
+    pub fn get_manager(&self) -> Rc<RefCell<HeapManager>> {
+        self.heap_manager.clone()
+    }
+ 
+}
+
+impl <T: HeapObject + PartialEq + 'static> PartialEq for HeapRef<T> {
+    
+    fn eq(&self, other: &Self) -> bool {
+        let hm = self.heap_manager.borrow();
+        let data = hm.deref(self);
+        let other_hm = other.heap_manager.borrow();
+        let other_data = other_hm.deref(other);
+        data == other_data
+    }
+}
+
+impl <T: HeapObject + Display + 'static> Display for HeapRef<T> {
+    
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.heap_manager.borrow().deref(self))
+    }
+}
 
 pub struct HeapManager {
     objects: Vec<Option<HeapEntry>>,
     free_slots: Vec<usize>, 
 }
-
 
 impl HeapManager {
 
@@ -28,22 +56,29 @@ impl HeapManager {
         }
     }
 
-    pub fn malloc<T: HeapObject + 'static>(&mut self, object: T) -> HeapRef<T> {
+    pub fn new_rc_refcell() -> Rc<RefCell<HeapManager>> {
+        Rc::new(RefCell::new(HeapManager::new()))
+    }
 
-        let index = if let Some(index) = self.free_slots.pop() {
-            self.objects[index] = Some(HeapEntry {
+    pub fn malloc<T: HeapObject + 'static>(heap_manager: &Rc<RefCell<Self>>, object: T) -> HeapRef<T> {
+
+        let mut hm = heap_manager.as_ref().borrow_mut();
+
+        let index = if let Some(index) = hm.free_slots.pop() {
+            hm.objects[index] = Some(HeapEntry {
                 object: Box::new(object),
             });
             index
         } else {
-            self.objects.push(Some(HeapEntry {
+            hm.objects.push(Some(HeapEntry {
                 object: Box::new(object),
             }));
-            self.objects.len() - 1
+            hm.objects.len() - 1
         };
 
         HeapRef { 
             index, 
+            heap_manager: heap_manager.clone(),
             _marker: PhantomData 
         }
     }
@@ -53,7 +88,7 @@ impl HeapManager {
         self.free_slots.push(obj_ref.index);
     } 
 
-    pub fn get_content<T: HeapObject + 'static>(&self, obj_ref: &HeapRef<T>) -> &T {
+    pub fn deref<T: HeapObject + 'static>(&self, obj_ref: &HeapRef<T>) -> &T {
         self.objects.get(obj_ref.index)
             .unwrap()
             .as_ref()
@@ -65,23 +100,34 @@ impl HeapManager {
             .unwrap()
     }
 
+    pub fn deref_mut<T: HeapObject + 'static>(&mut self, obj_ref: &HeapRef<T>) -> &mut T {
+        self.objects[obj_ref.index]
+            .as_mut()
+            .unwrap()
+            .object
+            .as_mut()
+            .as_any_mut()
+            .downcast_mut()
+            .unwrap()
+    }
+
 }
 
 #[cfg(test)]
 mod tests {
-    use super::HeapManager;
 
+    use super::HeapManager;
 
     #[test]
     fn allocate_then_free() {
 
-        let mut hm = HeapManager::new();
-        let obj_ref = hm.malloc("My String".to_string());
+        let hm = HeapManager::new_rc_refcell();
+        let obj_ref = HeapManager::malloc(&hm, "My String".to_string());
 
         assert_eq!(obj_ref.index, 0);
-        println!("{}", hm.get_content(&obj_ref));
+        println!("{}", obj_ref.get_manager().borrow_mut().deref_mut(&obj_ref));
 
-        hm.free(obj_ref);
+        hm.borrow_mut().free(obj_ref);
     }
 
 }

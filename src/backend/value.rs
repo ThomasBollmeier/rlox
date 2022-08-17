@@ -1,11 +1,13 @@
 use std::fmt::{Display, Debug};
 
+use super::heap::HeapRef;
+
 #[derive(PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
-    Str(String),
+    Str(HeapRef<String>),
 }
 
 impl Display for Value {

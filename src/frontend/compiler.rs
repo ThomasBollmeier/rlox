@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
-use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value};
+use std::{collections::VecDeque, cell::RefCell, rc::Rc};
+use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
 pub struct Compiler<'a> {
@@ -10,6 +10,7 @@ pub struct Compiler<'a> {
     had_error: bool,
     panic_mode: bool,
     parse_rules: ParseRules,
+    heap_manager: Rc<RefCell<HeapManager>>,
 }
 
 impl <'a> Compiler<'a> {
@@ -23,6 +24,7 @@ impl <'a> Compiler<'a> {
             had_error: false, 
             panic_mode: false,
             parse_rules: ParseRules::new(),
+            heap_manager: HeapManager::new_rc_refcell(),
         };
 
         ret.init_parse_rules();
@@ -83,6 +85,12 @@ impl <'a> Compiler<'a> {
         self.parse_rules.register(
             TokenType::False,
             literal(),
+            None,
+            Precedence::None
+        );
+        self.parse_rules.register(
+            TokenType::String,
+            string(),
             None,
             Precedence::None
         );
@@ -170,6 +178,17 @@ impl <'a> Compiler<'a> {
                 TokenType::False => self.emit_instruction(chunk, Instruction::False),
                 _ => (),
             }
+        }
+    }
+
+    fn string(&self, chunk: &mut Chunk) {
+        if let Some(token) = &self.previous {
+            let s = token.get_lexeme();
+            let s = s[1..(s.len()-1)].to_string();
+            let s_ref = HeapManager::malloc(&self.heap_manager, s);
+            let value = Value::Str(s_ref);
+            let value_idx = chunk.add_value(value);
+            self.emit_constant(chunk, value_idx);
         }
     }
 
@@ -385,4 +404,8 @@ fn number() -> Option<ParseFn> {
 
 fn literal() -> Option<ParseFn> {
     Some(|comp, chunk| comp.literal(chunk))
+}
+
+fn string() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.string(chunk))
 }

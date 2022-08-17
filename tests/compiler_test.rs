@@ -25,6 +25,11 @@ fn compile_comparisons() {
     compile_expression("!(5 - 4 > 3 * 2 == !nil)");
 }
 
+#[test]
+fn compile_string() {
+    compile_expression("\"Hallo Welt!\"");
+}
+
 fn compile_expression(source: &str) {
     let mut compiler = Compiler::new(source);
     let mut chunk = Chunk::new();
