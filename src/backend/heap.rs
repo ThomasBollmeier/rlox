@@ -84,9 +84,23 @@ impl HeapManager {
     }
 
     pub fn free<T: HeapObject>(&mut self, obj_ref: HeapRef<T>) {
-        self.objects[obj_ref.index] = None;
-        self.free_slots.push(obj_ref.index);
+        self.free_at_index(obj_ref.index);
     } 
+
+    fn free_at_index(&mut self, index: usize) {
+        self.objects[index] = None;
+        self.free_slots.push(index);
+    }
+
+    pub fn free_all(&mut self) {
+        let idxs_to_free: Vec<usize> = self.objects
+            .iter()
+            .enumerate()
+            .filter(|(_, entry_opt)|entry_opt.is_some())
+            .map(|(idx, _)| idx)
+            .collect();
+        idxs_to_free.iter().for_each(|i| self.free_at_index(*i));
+    }
 
     pub fn deref<T: HeapObject + 'static>(&self, obj_ref: &HeapRef<T>) -> &T {
         self.objects.get(obj_ref.index)

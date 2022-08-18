@@ -1,5 +1,5 @@
 use std::{io::{self, Read}, path::Path, fs::File};
-use crate::{backend::{InterpretResult, chunk::Chunk, vm::VM}, frontend::compiler::Compiler};
+use crate::{backend::{InterpretResult, chunk::Chunk, vm::VM, heap::HeapManager}, frontend::compiler::Compiler};
 
 pub fn repl() {
 
@@ -50,12 +50,17 @@ pub fn run_file(file_path: &str) -> Result<(), i32>{
 
 pub fn interpret(source: &str) -> InterpretResult {
 
-    let mut compiler = Compiler::new(source);
+    let heap_manager = HeapManager::new_rc_refcell();
+    let mut compiler = Compiler::new_with_heap_mgr(source, &heap_manager);
     let mut chunk = Chunk::new();
 
     if !compiler.compile(&mut chunk) {
+        heap_manager.borrow_mut().free_all();
         return InterpretResult::CompileError;
     }  
     
-    VM::new_with_chunk(chunk).run()
+    let ret = VM::new_with_chunk(chunk).run();
+    heap_manager.borrow_mut().free_all();
+
+    ret
 }

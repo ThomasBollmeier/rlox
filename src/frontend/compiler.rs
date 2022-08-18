@@ -15,7 +15,13 @@ pub struct Compiler<'a> {
 
 impl <'a> Compiler<'a> {
 
-    pub fn new(source: &str) -> Compiler {
+    pub fn new(source: &'a str) -> Compiler {
+        Self::new_with_heap_mgr(source, &HeapManager::new_rc_refcell())
+    }
+
+    pub fn new_with_heap_mgr(source: &'a str, heap_manager: &Rc<RefCell<HeapManager>>) 
+        -> Compiler<'a> {
+
         let mut ret = Compiler { 
             scanner: Scanner::new(source),
             lookahead: VecDeque::new(),
@@ -24,7 +30,7 @@ impl <'a> Compiler<'a> {
             had_error: false, 
             panic_mode: false,
             parse_rules: ParseRules::new(),
-            heap_manager: HeapManager::new_rc_refcell(),
+            heap_manager: heap_manager.clone(),
         };
 
         ret.init_parse_rules();
