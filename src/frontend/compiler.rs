@@ -156,11 +156,75 @@ impl <'a> Compiler<'a> {
         self.panic_mode = false;
         
         self.advance();
-        self.expression(chunk);
-        self.consume(TokenType::Eof, "expect end of expression.");
+        
+        while !self.is_match(TokenType::Eof) {
+            self.declaration(chunk);
+        }
+        
         self.end_compiler(chunk);
         
         !self.had_error
+    }
+
+    fn declaration(&mut self, chunk: &mut Chunk) {
+        self.statement(chunk);
+
+        if self.panic_mode {
+            self.synchronize();
+        }
+    }
+
+    fn synchronize(&mut self) {
+
+        self.panic_mode = false;
+
+        loop {
+            if let Some(token) = &self.current {
+                if token.get_token_type() == TokenType::Eof ||
+                    self.previous.as_ref().unwrap().get_token_type() == TokenType::Semicolon {
+                    return;
+                }
+                match token.get_token_type() {
+                    TokenType::Class |
+                    TokenType::Fun |
+                    TokenType::Var |
+                    TokenType::For |
+                    TokenType::If |
+                    TokenType::While |
+                    TokenType::Print |
+                    TokenType::Return =>
+                        return,
+                    _ => (),
+                }
+
+
+            } else {
+                return;
+            }
+
+            self.advance();
+        }
+
+    }
+
+    fn statement(&mut self, chunk: &mut Chunk) {
+        if self.is_match(TokenType::Print) {
+            self.print_statement(chunk);
+        } else {
+            self.expr_statement(chunk);
+        }
+    }
+
+    fn print_statement(&mut self, chunk: &mut Chunk) {
+        self.expression(chunk);
+        self.consume(TokenType::Semicolon, "Expect ';' after value.");
+        self.emit_instruction(chunk, Instruction::Print)
+    }
+
+    fn expr_statement(&mut self, chunk: &mut Chunk) {
+        self.expression(chunk);
+        self.consume(TokenType::Semicolon, "Expect ';' after expression.");
+        self.emit_instruction(chunk, Instruction::Pop);
     }
 
     fn expression(&mut self, chunk: &mut Chunk) {
@@ -321,6 +385,27 @@ impl <'a> Compiler<'a> {
             }
         }
         self.error_at_current(message);
+    }
+
+    fn is_match(&mut self, expected_type: TokenType) -> bool {
+        if self.check(expected_type) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn check(&self, expected_type: TokenType) -> bool {
+        if let Some(current) = &self.current {
+            if current.get_token_type() == expected_type {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 
     fn advance(&mut self) {

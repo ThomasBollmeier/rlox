@@ -58,6 +58,10 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             "OP_DIVIDE".to_string(),
         Instruction::Return => 
             "OP_RETURN".to_string(),
+        Instruction::Print =>
+            "OP_PRINT".to_string(),
+        Instruction::Pop =>
+            "OP_POP".to_string(),
     } 
 }
 

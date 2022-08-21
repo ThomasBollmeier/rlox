@@ -69,6 +69,10 @@ impl VM {
                 Instruction::Greater |
                 Instruction::Less => 
                     self.interpret_binary(&instr, self.get_line(offset)),
+                Instruction::Print =>
+                    self.interpret_print(),
+                Instruction::Pop =>
+                    self.interpret_pop(),
             };
 
             if let Some(result) = result {
@@ -115,11 +119,7 @@ impl VM {
     }
 
     fn interpret_return(&self) -> Option<InterpretResult> {
-
-        let value = self.pop();
-        println!("{}", value);
-
-        Some(InterpretResult::Ok)
+        None
     }
 
     fn interpret_constant(&self, value_idx: usize) -> Option<InterpretResult> {
@@ -172,6 +172,17 @@ impl VM {
         let b = self.pop();
         let a = self.pop();
         self.push(&Value::Bool(a == b));
+        None
+    }
+
+    fn interpret_print(&self) -> Option<InterpretResult> {
+        let value = self.pop();
+        println!("{}", value);
+        None
+    }
+
+    fn interpret_pop(&self) -> Option<InterpretResult> {
+        self.pop();
         None
     }
 

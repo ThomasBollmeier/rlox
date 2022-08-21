@@ -77,9 +77,12 @@ impl Chunk {
                 self.write(OpCode::Multiply as u8, line),
             Instruction::Divide =>
                 self.write(OpCode::Divide as u8, line),
-            Instruction::Return => {
-                self.write(OpCode::Return as u8, line);
-            },
+            Instruction::Return => 
+                self.write(OpCode::Return as u8, line),
+            Instruction::Print =>
+                self.write(OpCode::Print as u8, line),
+            Instruction::Pop =>
+                self.write(OpCode::Pop as u8, line),
         }
     }
 
@@ -197,9 +200,12 @@ impl <'a> Iterator for InstructionIter<'a> {
                 Some((Instruction::Multiply, offset)),
             OpCode::Divide =>
                 Some((Instruction::Divide, offset)),
-            OpCode::Return => {
-                Some((Instruction::Return, offset))
-            },
+            OpCode::Return => 
+                Some((Instruction::Return, offset)),
+            OpCode::Print => 
+                Some((Instruction::Print, offset)),
+            OpCode::Pop =>
+                Some((Instruction::Pop, offset)),
         }
     }
 }

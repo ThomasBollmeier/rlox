@@ -31,7 +31,9 @@ fn compile_string() {
 }
 
 fn compile_expression(source: &str) {
-    let mut compiler = Compiler::new(source);
+    // Add semicolon to compile as expression statement
+    let expr_statement = source.to_string() + ";";
+    let mut compiler = Compiler::new(&expr_statement);
     let mut chunk = Chunk::new();
 
     let ok = compiler.compile(&mut chunk);

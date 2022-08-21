@@ -8,21 +8,28 @@ fn run_file() {
 
 #[test]
 fn interpret_string() {
-    let source = "\"Hallo Welt!\"";
+    let source = "\"Hallo Welt!\";";
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
 
 #[test]
 fn interpret_string_equal() {
-    let source = "\"Hallo Welt!\" == \"Hallo Welt!\"";
+    let source = "\"Hallo Welt!\" == \"Hallo Welt!\";";
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
 
 #[test]
 fn interpret_string_concat() {
-    let source = "\"Hallo\" + \" Welt!\"";
+    let source = "\"Hallo\" + \" Welt!\";";
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
+
+#[test]
+fn interpret_print() {
+    let source = "print 41 + 1;";
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }

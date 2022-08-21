@@ -17,6 +17,8 @@ pub enum OpCode {
     Multiply,
     Divide,
     Return,
+    Print,
+    Pop,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -40,6 +42,8 @@ impl TryFrom<u8> for OpCode {
             v if v == OpCode::Multiply as u8 => Ok(OpCode::Multiply),
             v if v == OpCode::Divide as u8 => Ok(OpCode::Divide),
             v if v == OpCode::Return as u8 => Ok(OpCode::Return),
+            v if v == OpCode::Print as u8 => Ok(OpCode::Print),
+            v if v == OpCode::Pop as u8 => Ok(OpCode::Pop),
             _ => Err(format!("Unknown opcode {}", value))
         }
     }
@@ -61,6 +65,8 @@ pub enum Instruction {
     Multiply,
     Divide,
     Return,
+    Print,
+    Pop,
 }
 
 impl Display for Instruction {
@@ -84,6 +90,8 @@ impl Display for Instruction {
             Self::Multiply => write!(f, "Multiply"),
             Self::Divide => write!(f, "Divide"),
             Self::Return => write!(f, "Return"), 
+            Self::Print => write!(f, "Print"),
+            Self::Pop => write!(f, "Pop"),
         }
     }
 }
