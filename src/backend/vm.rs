@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 
 use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef};
 
@@ -12,6 +12,7 @@ pub enum InterpretResult {
 pub struct VM {
     chunk: Chunk,
     stack: RefCell<Vec<Value>>,
+    globals: RefCell<HashMap<String, Value>>,
 }
 
 impl VM {
@@ -23,6 +24,7 @@ impl VM {
         VM {
             chunk,
             stack: RefCell::new(Vec::new()),
+            globals: RefCell::new(HashMap::new()),
         }
     }
 
@@ -50,6 +52,8 @@ impl VM {
                     self.interpret_constant(value_idx as usize),
                 Instruction::ConstantLong { value_idx } => 
                     self.interpret_constant(value_idx as usize),
+                Instruction::DefineGlobal { global_idx } => 
+                    self.interpret_def_global(global_idx as usize),
                 Instruction::Nil =>
                     self.interpret_nil(),
                 Instruction::True =>
@@ -128,6 +132,24 @@ impl VM {
                 .read_value(value_idx)
                 .unwrap();
         self.push(value);
+        None
+    }
+
+    fn interpret_def_global(&self, global_idx: usize) -> Option<InterpretResult> {
+        let value = 
+            self.chunk
+                .read_value(global_idx)
+                .unwrap();
+
+        match value {
+            Value::Str(s) => {
+                let varname = s.get_manager().borrow().deref(s).clone();
+                let value = self.pop();
+                self.globals.borrow_mut().insert(varname, value);
+            },
+            _ => panic!("Expected string value."),
+        }
+        
         None
     }
 

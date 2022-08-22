@@ -19,6 +19,7 @@ pub enum OpCode {
     Return,
     Print,
     Pop,
+    DefineGlobal,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -44,6 +45,7 @@ impl TryFrom<u8> for OpCode {
             v if v == OpCode::Return as u8 => Ok(OpCode::Return),
             v if v == OpCode::Print as u8 => Ok(OpCode::Print),
             v if v == OpCode::Pop as u8 => Ok(OpCode::Pop),
+            v if v == OpCode::DefineGlobal as u8 => Ok(OpCode::DefineGlobal),
             _ => Err(format!("Unknown opcode {}", value))
         }
     }
@@ -67,6 +69,7 @@ pub enum Instruction {
     Return,
     Print,
     Pop,
+    DefineGlobal{global_idx: u32},
 }
 
 impl Display for Instruction {
@@ -92,6 +95,8 @@ impl Display for Instruction {
             Self::Return => write!(f, "Return"), 
             Self::Print => write!(f, "Print"),
             Self::Pop => write!(f, "Pop"),
+            Self::DefineGlobal{global_idx} => 
+                write!(f, "DefineGlobal({})", global_idx),
         }
     }
 }

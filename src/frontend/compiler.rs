@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, cell::RefCell, rc::Rc};
+use std::{collections::{VecDeque}, cell::RefCell, rc::Rc};
 use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
@@ -167,11 +167,39 @@ impl <'a> Compiler<'a> {
     }
 
     fn declaration(&mut self, chunk: &mut Chunk) {
-        self.statement(chunk);
+
+        if self.is_match(TokenType::Var) {
+            self.var_declaration(chunk);
+        } else {
+            self.statement(chunk);
+        }
 
         if self.panic_mode {
             self.synchronize();
         }
+    }
+
+    fn var_declaration(&mut self, chunk: &mut Chunk) {
+        self.consume(TokenType::Identifier, "Expect variable name.");
+        let global_idx = self.parse_varname(chunk) as u32;
+
+        if self.is_match(TokenType::Equal) {
+            self.expression(chunk);
+        } else {
+            self.emit_instruction(chunk, Instruction::Nil);
+        }
+
+        self.consume(TokenType::Semicolon, 
+            "Expect ';' after variable declaration.");
+
+        self.emit_instruction(chunk, Instruction::DefineGlobal { global_idx })
+    }
+
+    fn parse_varname(&mut self, chunk: &mut Chunk) -> usize {
+        let varname = self.previous.as_ref().unwrap().get_lexeme();
+        let varname = HeapManager::malloc(&self.heap_manager, varname.to_string());
+        let varname = Value::Str(varname);
+        chunk.add_value(varname)
     }
 
     fn synchronize(&mut self) {
