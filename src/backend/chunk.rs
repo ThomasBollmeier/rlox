@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use super::{value::Value, instruction::{Instruction, OpCode}};
 
 #[derive(Debug)]
 pub struct Chunk {
     code: Vec<u8>,
     values: Vec<Value>,
+    string_idxs: HashMap<String, usize>,
     lines: Vec<(i32, usize)>, // source code line mapping
 }
 
@@ -17,6 +20,7 @@ impl Chunk {
         Chunk {
             code: Vec::with_capacity(capacity),
             values: Vec::new(),
+            string_idxs: HashMap::new(),
             lines: Vec::new(),
         }
     }
@@ -55,6 +59,10 @@ impl Chunk {
             },
             Instruction::DefineGlobal { global_idx } => {
                 self.write(OpCode::DefineGlobal as u8, line);
+                self.write_long(global_idx, line);
+            },
+            Instruction::GetGlobal { global_idx } => {
+                self.write(OpCode::GetGlobal as u8, line);
                 self.write_long(global_idx, line);
             },
             Instruction::Nil =>
@@ -108,8 +116,20 @@ impl Chunk {
     }
 
     pub fn add_value(&mut self, value: Value) -> usize {
-        self.values.push(value);
-        self.values.len() - 1    
+        if let Value::Str(sref) = &value {
+            let s = sref.get_string();
+            if self.string_idxs.contains_key(&s) {
+                self.string_idxs[&s]
+            } else {
+                self.values.push(value);
+                let value_idx = self.values.len() - 1;
+                self.string_idxs.insert(s, value_idx);
+                value_idx
+            }
+        } else {
+            self.values.push(value);
+            self.values.len() - 1    
+        }
     }
 
     pub fn read_value(&self, offset: usize) -> Option<&Value> {
@@ -215,7 +235,12 @@ impl <'a> Iterator for InstructionIter<'a> {
                     self.offset += 4;
                     Some((Instruction::DefineGlobal{ global_idx }, offset))
                 },
-            }
+            OpCode::GetGlobal => {
+                    let global_idx = self.chunk.read_u32(self.offset);
+                    self.offset += 4;
+                    Some((Instruction::GetGlobal{ global_idx }, offset))
+                },
+        }
     }
 }
 

@@ -53,7 +53,9 @@ impl VM {
                 Instruction::ConstantLong { value_idx } => 
                     self.interpret_constant(value_idx as usize),
                 Instruction::DefineGlobal { global_idx } => 
-                    self.interpret_def_global(global_idx as usize),
+                    self.interpret_def_global(global_idx as usize, self.get_line(offset)),
+                Instruction::GetGlobal { global_idx } =>
+                    self.interpret_get_global(global_idx as usize, self.get_line(offset)),
                 Instruction::Nil =>
                     self.interpret_nil(),
                 Instruction::True =>
@@ -135,7 +137,7 @@ impl VM {
         None
     }
 
-    fn interpret_def_global(&self, global_idx: usize) -> Option<InterpretResult> {
+    fn interpret_def_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
         let value = 
             self.chunk
                 .read_value(global_idx)
@@ -147,7 +149,38 @@ impl VM {
                 let value = self.pop();
                 self.globals.borrow_mut().insert(varname, value);
             },
-            _ => panic!("Expected string value."),
+            _ => {
+                self.print_runtime_error(line, "Expected string value.");
+                return Some(InterpretResult::RuntimeError);
+            }
+        }
+        
+        None
+    }
+
+    fn interpret_get_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
+        let value = 
+            self.chunk
+                .read_value(global_idx)
+                .unwrap();
+
+        match value {
+            Value::Str(s) => {
+                let varname = s.get_manager().borrow().deref(s).clone();
+                let globals = self.globals.borrow();
+                let varvalue = globals.get(&varname);
+                if varvalue.is_some() {
+                    self.push(varvalue.unwrap());
+                } else {
+                    self.print_runtime_error(line, 
+                        &format!("Undefined variable '{}'.", varname));
+                    return Some(InterpretResult::RuntimeError);
+                }
+            },
+            _ => {
+                self.print_runtime_error(line, "Expected string value.");
+                return Some(InterpretResult::RuntimeError);
+            }
         }
         
         None

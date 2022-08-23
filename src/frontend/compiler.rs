@@ -101,6 +101,12 @@ impl <'a> Compiler<'a> {
             Precedence::None
         );
         self.parse_rules.register(
+            TokenType::Identifier,
+            variable(),
+            None,
+            Precedence::None
+        );
+        self.parse_rules.register(
             TokenType::Bang, 
             unary(), 
             None, 
@@ -287,6 +293,16 @@ impl <'a> Compiler<'a> {
             let value = Value::Str(s_ref);
             let value_idx = chunk.add_value(value);
             self.emit_constant(chunk, value_idx);
+        }
+    }
+
+    fn variable(&self, chunk: &mut Chunk) {
+        if let Some(token) = &self.previous {
+            let s = token.get_lexeme().to_string();
+            let s_ref = HeapManager::malloc(&self.heap_manager, s);
+            let value = Value::Str(s_ref);
+            let global_idx = chunk.add_value(value) as u32;
+            self.emit_instruction(chunk, Instruction::GetGlobal {global_idx});
         }
     }
 
@@ -527,4 +543,8 @@ fn literal() -> Option<ParseFn> {
 
 fn string() -> Option<ParseFn> {
     Some(|comp, chunk| comp.string(chunk))
+}
+
+fn variable() -> Option<ParseFn> {
+    Some(|comp, chunk| comp.variable(chunk))
 }

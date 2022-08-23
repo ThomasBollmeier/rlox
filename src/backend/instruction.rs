@@ -20,6 +20,7 @@ pub enum OpCode {
     Print,
     Pop,
     DefineGlobal,
+    GetGlobal,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -46,6 +47,7 @@ impl TryFrom<u8> for OpCode {
             v if v == OpCode::Print as u8 => Ok(OpCode::Print),
             v if v == OpCode::Pop as u8 => Ok(OpCode::Pop),
             v if v == OpCode::DefineGlobal as u8 => Ok(OpCode::DefineGlobal),
+            v if v == OpCode::GetGlobal as u8 => Ok(OpCode::GetGlobal),
             _ => Err(format!("Unknown opcode {}", value))
         }
     }
@@ -70,16 +72,17 @@ pub enum Instruction {
     Print,
     Pop,
     DefineGlobal{global_idx: u32},
+    GetGlobal{global_idx: u32},
 }
 
 impl Display for Instruction {
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Constant { value_idx } => write!(f, "Constant({})", 
-            value_idx),
-            Self::ConstantLong { value_idx } => write!(f, "ConstantLong({})", 
-            value_idx),
+            Self::Constant { value_idx } => 
+                write!(f, "Constant({})", value_idx),
+            Self::ConstantLong { value_idx } => 
+                write!(f, "ConstantLong({})", value_idx),
             Self::Nil => write!(f, "Nil"),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
@@ -97,6 +100,8 @@ impl Display for Instruction {
             Self::Pop => write!(f, "Pop"),
             Self::DefineGlobal{global_idx} => 
                 write!(f, "DefineGlobal({})", global_idx),
+            Self::GetGlobal{global_idx} => 
+                write!(f, "GetGlobal({})", global_idx),
         }
     }
 }

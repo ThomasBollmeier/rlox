@@ -33,3 +33,14 @@ fn interpret_print() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_def_global() {
+
+    let source = "
+        var beverage = \"cafe au lait\";
+        print \"beignets with \" + beverage;
+    ";
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

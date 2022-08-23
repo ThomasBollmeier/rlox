@@ -14,18 +14,16 @@ impl HeapObject for String {
 impl HeapRef<String> {
 
     pub fn concat(&self, other: &HeapRef<String>) -> HeapRef<String> {
-        let s = {
-            let hm = self.get_manager();
-            let hm_ref = hm.borrow();
-            hm_ref.deref(self).to_owned()
-        };
-        let other_s = {
-            let hm = other.get_manager();
-            let hm_ref = hm.borrow();
-            hm_ref.deref(other).to_owned()
-        };
+        let s = self.get_string();
+        let other_s = other.get_string();
         let new_string = s + &other_s;
         HeapManager::malloc(&self.get_manager(), new_string)
+    }
+
+    pub fn get_string(&self) -> String {
+        let hm = self.get_manager();
+        let hm_ref = hm.borrow();
+        hm_ref.deref(self).to_owned()
     }
 
 }

@@ -35,6 +35,7 @@ fn compile_def_global() {
 
     let source = "
         var answer = 42;
+        print answer;
     ";
 
     compile_code(source, "global var definition");
