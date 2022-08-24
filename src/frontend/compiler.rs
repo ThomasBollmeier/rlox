@@ -265,7 +265,7 @@ impl <'a> Compiler<'a> {
         self.parse_precedence(Precedence::Assignment, chunk);
     }
 
-    fn number(&self, chunk: &mut Chunk) {
+    fn number(&self, chunk: &mut Chunk, _can_assign: bool) {
         if let Some(token) = &self.previous {
             let x = token.get_lexeme().parse::<f64>().unwrap();
             let value = Value::Number(x);
@@ -274,7 +274,7 @@ impl <'a> Compiler<'a> {
         } 
     }
 
-    fn literal(&self, chunk: &mut Chunk) {
+    fn literal(&self, chunk: &mut Chunk, _can_assign: bool) {
         if let Some(token) = &self.previous {
             match token.get_token_type() {
                 TokenType::Nil => self.emit_instruction(chunk, Instruction::Nil),
@@ -285,7 +285,7 @@ impl <'a> Compiler<'a> {
         }
     }
 
-    fn string(&self, chunk: &mut Chunk) {
+    fn string(&self, chunk: &mut Chunk, _can_assign: bool) {
         if let Some(token) = &self.previous {
             let s = token.get_lexeme();
             let s = s[1..(s.len()-1)].to_string();
@@ -296,22 +296,28 @@ impl <'a> Compiler<'a> {
         }
     }
 
-    fn variable(&self, chunk: &mut Chunk) {
+    fn variable(&mut self, chunk: &mut Chunk, can_assign: bool) {
         if let Some(token) = &self.previous {
             let s = token.get_lexeme().to_string();
             let s_ref = HeapManager::malloc(&self.heap_manager, s);
             let value = Value::Str(s_ref);
             let global_idx = chunk.add_value(value) as u32;
-            self.emit_instruction(chunk, Instruction::GetGlobal {global_idx});
+
+            if !can_assign || !self.is_match(TokenType::Equal) {
+                self.emit_instruction(chunk, Instruction::GetGlobal {global_idx});
+            } else {
+                self.expression(chunk);
+                self.emit_instruction(chunk, Instruction::SetGlobal {global_idx});
+            }
         }
     }
 
-    fn grouping(&mut self, chunk: &mut Chunk) {
+    fn grouping(&mut self, chunk: &mut Chunk, _can_assign: bool) {
         self.expression(chunk);
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
 
-    fn binary(&mut self, chunk: &mut Chunk) {
+    fn binary(&mut self, chunk: &mut Chunk, _can_assign: bool) {
         let operator_type = self.previous.as_ref().unwrap().get_token_type();
         let next_prec = self.parse_rules
             .get_parse_rule(&operator_type)
@@ -345,7 +351,7 @@ impl <'a> Compiler<'a> {
         }
     }
 
-    fn unary(&mut self, chunk: &mut Chunk) {
+    fn unary(&mut self, chunk: &mut Chunk, _can_assign: bool) {
         let token_type = &self.previous
             .as_ref()
             .unwrap()
@@ -371,7 +377,8 @@ impl <'a> Compiler<'a> {
         }
 
         let prefix = prefix_opt.unwrap();
-        prefix(self, chunk);
+        let can_assign = prec <= Precedence::Assignment;
+        prefix(self, chunk, can_assign);
 
         while let Some(token) = &self.current {
             let token_type = token.get_token_type();
@@ -390,7 +397,11 @@ impl <'a> Compiler<'a> {
                 .infix
                 .unwrap();
 
-            infix(self, chunk);
+            infix(self, chunk, can_assign);
+        }
+
+        if can_assign && self.is_match(TokenType::Equal) {
+            self.error("Invalid assignment target.");
         }
 
     }
@@ -522,29 +533,29 @@ impl <'a> Compiler<'a> {
 }
 
 fn grouping() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.grouping(chunk))
+    Some(|comp, chunk, can_assign| comp.grouping(chunk, can_assign))
 }
 
 fn binary() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.binary(chunk))
+    Some(|comp, chunk, can_assign| comp.binary(chunk, can_assign))
 }
 
 fn unary() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.unary(chunk))
+    Some(|comp, chunk, can_assign| comp.unary(chunk, can_assign))
 }
 
 fn number() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.number(chunk))
+    Some(|comp, chunk, can_assign| comp.number(chunk, can_assign))
 }
 
 fn literal() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.literal(chunk))
+    Some(|comp, chunk, can_assign| comp.literal(chunk, can_assign))
 }
 
 fn string() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.string(chunk))
+    Some(|comp, chunk, can_assign| comp.string(chunk, can_assign))
 }
 
 fn variable() -> Option<ParseFn> {
-    Some(|comp, chunk| comp.variable(chunk))
+    Some(|comp, chunk, can_assign| comp.variable(chunk, can_assign))
 }

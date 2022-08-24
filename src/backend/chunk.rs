@@ -65,6 +65,10 @@ impl Chunk {
                 self.write(OpCode::GetGlobal as u8, line);
                 self.write_long(global_idx, line);
             },
+            Instruction::SetGlobal { global_idx } => {
+                self.write(OpCode::SetGlobal as u8, line);
+                self.write_long(global_idx, line);
+            },
             Instruction::Nil =>
                 self.write(OpCode::Nil as u8, line),
             Instruction::True =>
@@ -239,6 +243,11 @@ impl <'a> Iterator for InstructionIter<'a> {
                     let global_idx = self.chunk.read_u32(self.offset);
                     self.offset += 4;
                     Some((Instruction::GetGlobal{ global_idx }, offset))
+                },
+            OpCode::SetGlobal => {
+                    let global_idx = self.chunk.read_u32(self.offset);
+                    self.offset += 4;
+                    Some((Instruction::SetGlobal{ global_idx }, offset))
                 },
         }
     }

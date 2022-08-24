@@ -44,3 +44,16 @@ fn interpret_def_global() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_global_assignment() {
+
+    let source = "
+        var breakfast;
+        var beverage = \"cafe au lait\";
+        breakfast = \"beignets with \"; 
+        print breakfast + beverage;
+    ";
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

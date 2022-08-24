@@ -36,6 +36,8 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             disassemble_def_global(chunk, global_idx),
         Instruction::GetGlobal { global_idx } => 
             disassemble_get_global(chunk, global_idx),
+        Instruction::SetGlobal { global_idx } => 
+            disassemble_set_global(chunk, global_idx),
         Instruction::Nil =>
             "OP_NIL".to_string(),
         Instruction::True =>
@@ -88,6 +90,11 @@ fn disassemble_def_global(chunk: &Chunk, global_idx: &u32) -> String {
 fn disassemble_get_global(chunk: &Chunk, global_idx: &u32) -> String {
     let value = chunk.read_value(*global_idx as usize).unwrap();
     format!("{:<16} {:04} ({})", "OP_GET_GLOBAL", global_idx, value)
+}
+
+fn disassemble_set_global(chunk: &Chunk, global_idx: &u32) -> String {
+    let value = chunk.read_value(*global_idx as usize).unwrap();
+    format!("{:<16} {:04} ({})", "OP_SET_GLOBAL", global_idx, value)
 }
 
 #[cfg(test)]

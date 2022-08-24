@@ -56,6 +56,8 @@ impl VM {
                     self.interpret_def_global(global_idx as usize, self.get_line(offset)),
                 Instruction::GetGlobal { global_idx } =>
                     self.interpret_get_global(global_idx as usize, self.get_line(offset)),
+                Instruction::SetGlobal { global_idx } =>
+                    self.interpret_set_global(global_idx as usize, self.get_line(offset)),
                 Instruction::Nil =>
                     self.interpret_nil(),
                 Instruction::True =>
@@ -146,7 +148,7 @@ impl VM {
         match value {
             Value::Str(s) => {
                 let varname = s.get_manager().borrow().deref(s).clone();
-                let value = self.pop();
+                let value = self.peek(0).unwrap();
                 self.globals.borrow_mut().insert(varname, value);
             },
             _ => {
@@ -171,6 +173,34 @@ impl VM {
                 let varvalue = globals.get(&varname);
                 if varvalue.is_some() {
                     self.push(varvalue.unwrap());
+                } else {
+                    self.print_runtime_error(line, 
+                        &format!("Undefined variable '{}'.", varname));
+                    return Some(InterpretResult::RuntimeError);
+                }
+            },
+            _ => {
+                self.print_runtime_error(line, "Expected string value.");
+                return Some(InterpretResult::RuntimeError);
+            }
+        }
+        
+        None
+    }
+
+    fn interpret_set_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
+        let value = 
+            self.chunk
+                .read_value(global_idx)
+                .unwrap();
+
+        match value {
+            Value::Str(s) => {
+                let varname = s.get_manager().borrow().deref(s).clone();
+                let mut globals = self.globals.borrow_mut();
+                if globals.contains_key(&varname) {
+                    let new_value = self.pop();
+                    globals.insert(varname, new_value);
                 } else {
                     self.print_runtime_error(line, 
                         &format!("Undefined variable '{}'.", varname));

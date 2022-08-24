@@ -54,7 +54,7 @@ impl TryFrom<u8> for Precedence {
     }
 }
 
-pub type ParseFn = fn (&mut Compiler, chunk: &mut Chunk) -> ();
+pub type ParseFn = fn (&mut Compiler, chunk: &mut Chunk, can_assign: bool) -> ();
 
 pub struct ParseRule {
     pub prefix: Option<ParseFn>,

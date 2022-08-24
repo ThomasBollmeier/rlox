@@ -41,6 +41,36 @@ fn compile_def_global() {
     compile_code(source, "global var definition");
 }
 
+#[test]
+fn compile_assignment() {
+
+    let source = "
+        var answer;
+        answer = 42;
+        print answer;
+    ";
+
+    compile_code(source, "assignment");
+}
+
+#[test]
+fn compile_invalid_assignment() {
+
+    let source = "
+        var question = 0;
+        var answer = 0;
+        question + answer = 42;
+        print answer;
+    ";
+
+    let mut compiler = Compiler::new(source);
+    let mut chunk = Chunk::new();
+
+    let ok = compiler.compile(&mut chunk);
+    
+    assert!(!ok); 
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";
