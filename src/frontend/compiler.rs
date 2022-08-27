@@ -2,6 +2,11 @@ use std::{collections::{VecDeque}, cell::RefCell, rc::Rc};
 use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
+struct Local {
+    name: Token,
+    depth: usize, // scope depth
+}
+
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     lookahead: VecDeque<Token>,
@@ -11,6 +16,8 @@ pub struct Compiler<'a> {
     panic_mode: bool,
     parse_rules: ParseRules,
     heap_manager: Rc<RefCell<HeapManager>>,
+    locals: Vec<Local>,
+    curr_depth: usize,
 }
 
 impl <'a> Compiler<'a> {
@@ -31,6 +38,8 @@ impl <'a> Compiler<'a> {
             panic_mode: false,
             parse_rules: ParseRules::new(),
             heap_manager: heap_manager.clone(),
+            locals: Vec::new(),
+            curr_depth: 0,
         };
 
         ret.init_parse_rules();
@@ -186,8 +195,16 @@ impl <'a> Compiler<'a> {
     }
 
     fn var_declaration(&mut self, chunk: &mut Chunk) {
+
         self.consume(TokenType::Identifier, "Expect variable name.");
-        let global_idx = self.parse_varname(chunk) as u32;
+        
+        let vartoken = self.previous.as_ref().unwrap().clone();
+
+        let idx_opt = self.resolve_local_idx_w_min_depth(&vartoken, self.curr_depth);
+        if !idx_opt.is_none() {
+            self.error("Already a variable with this name in scope");
+            return;
+        }
 
         if self.is_match(TokenType::Equal) {
             self.expression(chunk);
@@ -198,14 +215,25 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::Semicolon, 
             "Expect ';' after variable declaration.");
 
-        self.emit_instruction(chunk, Instruction::DefineGlobal { global_idx })
+        if self.curr_depth > 0 {
+            let local = Local{
+                name: vartoken,
+                depth: self.curr_depth,
+            };
+            self.locals.push(local);
+
+        } else {
+            let varname = self.create_varname(vartoken);
+            let global_idx = chunk.add_value(varname) as u32;
+            self.emit_instruction(chunk, Instruction::DefineGlobal { global_idx })
+        }
+        
     }
 
-    fn parse_varname(&mut self, chunk: &mut Chunk) -> usize {
-        let varname = self.previous.as_ref().unwrap().get_lexeme();
+    fn create_varname(&self, token: Token) -> Value {
+        let varname = token.get_lexeme();
         let varname = HeapManager::malloc(&self.heap_manager, varname.to_string());
-        let varname = Value::Str(varname);
-        chunk.add_value(varname)
+        Value::Str(varname)
     }
 
     fn synchronize(&mut self) {
@@ -244,9 +272,66 @@ impl <'a> Compiler<'a> {
     fn statement(&mut self, chunk: &mut Chunk) {
         if self.is_match(TokenType::Print) {
             self.print_statement(chunk);
+        } else if self.is_match(TokenType::LeftBrace) {
+            self.begin_scope();
+            self.block(chunk);
+            self.end_scope(chunk);
         } else {
             self.expr_statement(chunk);
         }
+    }
+
+    fn begin_scope(&mut self) {
+        self.curr_depth += 1;
+    }
+
+    fn end_scope(&mut self, chunk: &mut Chunk) {
+        self.curr_depth -= 1;
+        self.remove_locals(chunk);
+    }
+
+    fn remove_locals(&mut self, chunk: &mut Chunk) {
+        while let Some(local) = self.locals.last() {
+            if local.depth > self.curr_depth {
+                self.emit_instruction(chunk, Instruction::Pop);
+                self.locals.pop();
+            } else {
+                break;
+            }
+        } 
+    }
+
+    fn resolve_local_idx(&self, name: &Token) -> Option<usize> {
+        let name = name.get_lexeme();
+        for (idx, local) in self.locals.iter().enumerate().rev() {
+            if local.name.get_lexeme() == name {
+                return Some(idx);
+            }
+        }
+        None
+    }
+
+    fn resolve_local_idx_w_min_depth(&self, name: &Token, min_depth: usize) -> Option<usize> {
+        let name = name.get_lexeme();
+        for (idx, local) in self.locals.iter().enumerate().rev() {
+            if local.depth < min_depth {
+                break;
+            }
+            if local.name.get_lexeme() == name {
+                return Some(idx);
+            }
+        }
+        None
+    }
+
+    fn block(&mut self, chunk: &mut Chunk) {
+        while !self.check(TokenType::RightBrace) && 
+            !self.check(TokenType::Eof) {
+            self.declaration(chunk);
+        }
+
+        self.consume(TokenType::RightBrace, 
+            "Expect '}' after block.");
     }
 
     fn print_statement(&mut self, chunk: &mut Chunk) {
@@ -298,16 +383,36 @@ impl <'a> Compiler<'a> {
 
     fn variable(&mut self, chunk: &mut Chunk, can_assign: bool) {
         if let Some(token) = &self.previous {
-            let s = token.get_lexeme().to_string();
-            let s_ref = HeapManager::malloc(&self.heap_manager, s);
-            let value = Value::Str(s_ref);
-            let global_idx = chunk.add_value(value) as u32;
+
+            let mut local_idx: Option<u32> = None;
+            let mut global_idx: Option<u32> = None;
+
+            if let Some(idx) = self.resolve_local_idx(token) {
+                local_idx = Some(idx as u32);
+            } else {
+                let s = token.get_lexeme().to_string();
+                let s_ref = HeapManager::malloc(&self.heap_manager, s);
+                let value = Value::Str(s_ref);
+                global_idx = Some(chunk.add_value(value) as u32);
+            }
 
             if !can_assign || !self.is_match(TokenType::Equal) {
-                self.emit_instruction(chunk, Instruction::GetGlobal {global_idx});
+                if local_idx.is_some() {
+                    self.emit_instruction(chunk, 
+                        Instruction::GetLocal {local_idx: local_idx.unwrap() });
+                } else {
+                    self.emit_instruction(chunk, 
+                        Instruction::GetGlobal {global_idx: global_idx.unwrap()});
+                }
             } else {
                 self.expression(chunk);
-                self.emit_instruction(chunk, Instruction::SetGlobal {global_idx});
+                if local_idx.is_some() {
+                    self.emit_instruction(chunk, 
+                        Instruction::SetLocal {local_idx: local_idx.unwrap() });
+                } else {
+                    self.emit_instruction(chunk, 
+                        Instruction::SetGlobal {global_idx: global_idx.unwrap()});
+                }
             }
         }
     }

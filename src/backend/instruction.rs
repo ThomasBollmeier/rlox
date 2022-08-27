@@ -22,6 +22,8 @@ pub enum OpCode {
     DefineGlobal,
     GetGlobal,
     SetGlobal,
+    GetLocal,
+    SetLocal,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -50,6 +52,8 @@ impl TryFrom<u8> for OpCode {
             v if v == OpCode::DefineGlobal as u8 => Ok(OpCode::DefineGlobal),
             v if v == OpCode::GetGlobal as u8 => Ok(OpCode::GetGlobal),
             v if v == OpCode::SetGlobal as u8 => Ok(OpCode::SetGlobal),
+            v if v == OpCode::GetLocal as u8 => Ok(OpCode::GetLocal),
+            v if v == OpCode::SetLocal as u8 => Ok(OpCode::SetLocal),
             _ => Err(format!("Unknown opcode {}", value))
         }
     }
@@ -76,6 +80,8 @@ pub enum Instruction {
     DefineGlobal{global_idx: u32},
     GetGlobal{global_idx: u32},
     SetGlobal{global_idx: u32},
+    GetLocal{local_idx: u32},
+    SetLocal{local_idx: u32},
 }
 
 impl Display for Instruction {
@@ -107,6 +113,10 @@ impl Display for Instruction {
                 write!(f, "GetGlobal({})", global_idx),
             Self::SetGlobal{global_idx} => 
                 write!(f, "SetGlobal({})", global_idx),
+            Self::GetLocal{local_idx} => 
+                write!(f, "GetGlobal({})", local_idx),
+            Self::SetLocal{local_idx} => 
+                write!(f, "SetGlobal({})", local_idx),
         }
     }
 }

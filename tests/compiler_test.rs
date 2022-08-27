@@ -71,6 +71,38 @@ fn compile_invalid_assignment() {
     assert!(!ok); 
 }
 
+#[test]
+fn compile_local_def() {
+
+    let source = "        
+        {
+            var a = 1 + 2;
+            var b = a;
+            print b;
+        }
+    ";
+
+    compile_code(source, "local_def");
+}
+
+#[test]
+fn compile_invalid_local_def() {
+
+    let source = "
+        {
+            var a = 1;
+            var a = 2;
+        }
+    ";
+
+    let mut compiler = Compiler::new(source);
+    let mut chunk = Chunk::new();
+
+    let ok = compiler.compile(&mut chunk);
+    
+    assert!(!ok); 
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";

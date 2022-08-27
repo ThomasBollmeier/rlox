@@ -57,3 +57,18 @@ fn interpret_global_assignment() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_def_local() {
+    
+    let source = "
+        {
+            var a = 41;
+            var b = a + 1;
+            print b;
+        }
+    ";
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+
+}

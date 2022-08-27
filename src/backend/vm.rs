@@ -58,6 +58,10 @@ impl VM {
                     self.interpret_get_global(global_idx as usize, self.get_line(offset)),
                 Instruction::SetGlobal { global_idx } =>
                     self.interpret_set_global(global_idx as usize, self.get_line(offset)),
+                Instruction::GetLocal { local_idx } =>
+                    self.interpret_get_local(local_idx as usize),
+                Instruction::SetLocal { local_idx } =>
+                    self.interpret_set_local(local_idx as usize),
                 Instruction::Nil =>
                     self.interpret_nil(),
                 Instruction::True =>
@@ -213,6 +217,19 @@ impl VM {
             }
         }
         
+        None
+    }
+
+    fn interpret_get_local(&self, local_idx: usize) -> Option<InterpretResult> {
+        let mut stack = self.stack.borrow_mut();
+        let value = stack[local_idx].clone();
+        stack.push(value);
+        None
+    }
+
+    fn interpret_set_local(&self, local_idx: usize) -> Option<InterpretResult> {
+        let value = self.peek(0).unwrap();
+        self.stack.borrow_mut()[local_idx] = value;
         None
     }
 
