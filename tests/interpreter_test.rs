@@ -70,5 +70,25 @@ fn interpret_def_local() {
     ";
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
+}
 
+#[test]
+fn interpret_nested_scopes() {
+    
+    let source = "
+        {
+            var a = \"outer\";
+
+            {
+                var a = a;
+                print a;
+                a = \"inner\";
+                print a;
+            }
+
+            print a;
+        }
+    ";
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
 }
