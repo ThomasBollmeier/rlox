@@ -272,6 +272,8 @@ impl <'a> Compiler<'a> {
     fn statement(&mut self, chunk: &mut Chunk) {
         if self.is_match(TokenType::Print) {
             self.print_statement(chunk);
+        } else if self.is_match(TokenType::If) {
+            self.if_statement(chunk);
         } else if self.is_match(TokenType::LeftBrace) {
             self.begin_scope();
             self.block(chunk);
@@ -279,6 +281,37 @@ impl <'a> Compiler<'a> {
         } else {
             self.expr_statement(chunk);
         }
+    }
+
+    fn if_statement(&mut self, chunk: &mut Chunk) {
+
+        self.consume(TokenType::LeftParen, "Expect '(' after 'if'.");
+        self.expression(chunk);
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+    
+        let offset_jump_if_false = chunk.size();        
+        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        
+        self.emit_instruction(chunk, Instruction::Pop);
+        self.statement(chunk); // then block
+        
+        let offset_jump = chunk.size();
+        self.emit_instruction(chunk, Instruction::Jump { jump_distance: 0 });
+
+        let offset_pop = chunk.size();
+        self.emit_instruction(chunk, Instruction::Pop);
+        if self.is_match(TokenType::Else) {
+            self.statement(chunk); // else block
+        }
+
+        let offset_end = chunk.size();
+
+        let mut jump_delta = (offset_pop - offset_jump_if_false) as u16;
+        chunk.update_jump_offset(offset_jump_if_false, jump_delta);
+
+        jump_delta = (offset_end - offset_jump) as u16;
+        chunk.update_jump_offset(offset_jump, jump_delta);
+
     }
 
     fn begin_scope(&mut self) {

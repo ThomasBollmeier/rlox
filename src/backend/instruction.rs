@@ -24,6 +24,8 @@ pub enum OpCode {
     SetGlobal,
     GetLocal,
     SetLocal,
+    Jump,
+    JumpIfFalse,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -54,6 +56,8 @@ impl TryFrom<u8> for OpCode {
             v if v == OpCode::SetGlobal as u8 => Ok(OpCode::SetGlobal),
             v if v == OpCode::GetLocal as u8 => Ok(OpCode::GetLocal),
             v if v == OpCode::SetLocal as u8 => Ok(OpCode::SetLocal),
+            v if v == OpCode::Jump as u8 => Ok(OpCode::Jump),
+            v if v == OpCode::JumpIfFalse as u8 => Ok(OpCode::JumpIfFalse),
             _ => Err(format!("Unknown opcode {}", value))
         }
     }
@@ -82,6 +86,8 @@ pub enum Instruction {
     SetGlobal{global_idx: u32},
     GetLocal{local_idx: u32},
     SetLocal{local_idx: u32},
+    Jump{jump_distance: u16},
+    JumpIfFalse{jump_distance: u16},
 }
 
 impl Display for Instruction {
@@ -117,6 +123,10 @@ impl Display for Instruction {
                 write!(f, "GetGlobal({})", local_idx),
             Self::SetLocal{local_idx} => 
                 write!(f, "SetGlobal({})", local_idx),
+            Self::Jump {jump_distance: offset} =>
+                write!(f, "Jump({})", offset),
+            Self::JumpIfFalse {jump_distance: offset} =>
+                write!(f, "JumpIfFalse({})", offset),
         }
     }
 }

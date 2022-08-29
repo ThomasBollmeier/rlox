@@ -42,6 +42,10 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             disassemble_get_local(chunk, local_idx),
         Instruction::SetLocal { local_idx } => 
             disassemble_set_local(chunk, local_idx),
+        Instruction::Jump { jump_distance: offset } => 
+            disassemble_jump(offset),
+        Instruction::JumpIfFalse { jump_distance: offset } => 
+            disassemble_jump_if_false(offset),
         Instruction::Nil =>
             "OP_NIL".to_string(),
         Instruction::True =>
@@ -110,6 +114,15 @@ fn disassemble_set_local(chunk: &Chunk, local_idx: &u32) -> String {
     let value = chunk.read_value(*local_idx as usize).unwrap();
     format!("{:<16} {:04} ({})", "OP_SET_LOCAL", local_idx, value)
 }
+
+fn disassemble_jump(offset: &u16) -> String {
+    format!("{:<16} {:04}", "OP_JUMP", offset)
+}
+
+fn disassemble_jump_if_false(offset: &u16) -> String {
+    format!("{:<16} {:04}", "OP_JUMP_IF_FALSE", offset)
+}
+
 #[cfg(test)]
 mod tests {
 

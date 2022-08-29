@@ -92,3 +92,21 @@ fn interpret_nested_scopes() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_if() {
+    
+    let source = "
+        if (1 < 2) {
+            print \"Hallo Welt!\";
+        } else {
+            print \"Ich werde nicht gedruckt.\";
+        }
+
+        if (1 == 2) {
+            print \"Keine Ausgabe :-(\";
+        }
+    ";
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

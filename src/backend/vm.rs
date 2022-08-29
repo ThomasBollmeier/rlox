@@ -90,6 +90,10 @@ impl VM {
                     self.interpret_print(),
                 Instruction::Pop =>
                     self.interpret_pop(),
+                Instruction::Jump { jump_distance } =>
+                    self.interpret_jump(offset, jump_distance), 
+                Instruction::JumpIfFalse { jump_distance } =>
+                    self.interpret_jump_if_false(offset, jump_distance), 
             };
 
             if let Some(result) = result {
@@ -235,6 +239,19 @@ impl VM {
     fn interpret_set_local(&self, local_idx: usize) -> Option<InterpretResult> {
         let value = self.peek(0).unwrap();
         self.stack.borrow_mut()[local_idx] = value;
+        None
+    }
+
+    fn interpret_jump(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
+        self.ip = offset + jump_distance as usize;
+        None
+    }
+
+    fn interpret_jump_if_false(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
+        let condition = self.peek(0).unwrap();
+        if Self::is_falsey(&condition) {
+            self.ip = offset + jump_distance as usize;
+        }
         None
     }
 

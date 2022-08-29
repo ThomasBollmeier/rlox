@@ -103,6 +103,20 @@ fn compile_invalid_local_def() {
     assert!(!ok); 
 }
 
+#[test]
+fn compile_if() {
+
+    let source = "
+        if (1 < 2) {
+            print \"Eins ist kleiner!\";
+        } else {
+            print \"Kann nicht sein.\";
+        }
+    ";
+
+    compile_code(source, "if");
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";

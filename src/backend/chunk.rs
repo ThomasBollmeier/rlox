@@ -40,6 +40,13 @@ impl Chunk {
         }
     }
     
+    pub fn write_u16(&mut self, intval: u16, line: i32) {
+        let bytes = intval.to_be_bytes();
+        bytes.into_iter().for_each(|byte| { 
+            self.write(byte, line);
+        });
+    }
+
     pub fn write_long(&mut self, intval: u32, line: i32) {
         let bytes = intval.to_be_bytes();
         bytes.into_iter().for_each(|byte| { 
@@ -47,7 +54,10 @@ impl Chunk {
         });
     }
 
-    pub fn write_instruction(&mut self, instr: Instruction, line: i32) {
+    pub fn write_instruction(&mut self, instr: Instruction, line: i32) -> (usize, usize) {
+
+        let start_offset = self.code.len();
+
         match instr { 
             Instruction::Constant { value_idx } => {
                 self.write(OpCode::Constant as u8, line);
@@ -107,7 +117,25 @@ impl Chunk {
                 self.write(OpCode::Print as u8, line),
             Instruction::Pop =>
                 self.write(OpCode::Pop as u8, line),
+            Instruction::Jump { jump_distance: offset } => {
+                self.write(OpCode::Jump as u8, line);
+                self.write_u16(offset, line);
+            },
+            Instruction::JumpIfFalse { jump_distance: offset } => {
+                self.write(OpCode::JumpIfFalse as u8, line);
+                self.write_u16(offset, line);
+            },
         }
+
+        let next_offset = self.code.len();
+
+        (start_offset, next_offset)
+    }
+
+    pub fn update_jump_offset(&mut self, offset: usize, jump_delta: u16) {
+        let bytes = jump_delta.to_be_bytes();
+        self.code[offset + 1] = bytes[0];
+        self.code[offset + 2] = bytes[1];
     }
 
     pub fn read(&self, offset: usize) -> Option<&u8> {
@@ -116,6 +144,15 @@ impl Chunk {
 
     pub fn read_n_bytes(&self, offset: usize, n: usize) -> &[u8] {
         &self.code[offset..(offset + n)]
+    }
+
+    pub fn read_u16(&self, offset: usize) -> u16 {
+        let bytes_slice = self.read_n_bytes(offset, 2);
+        let mut bytes: [u8; 2] = [0; 2];
+        for (i, byte) in bytes_slice.iter().enumerate() {
+            bytes[i] = *byte;
+        }
+        u16::from_be_bytes(bytes) 
     }
 
     pub fn read_u32(&self, offset: usize) -> u32 {
@@ -214,6 +251,16 @@ impl Chunk {
                     next_offset += 4;
                     Some((Instruction::SetLocal{ local_idx }, next_offset))
             },
+            OpCode::Jump => {
+                let offset = self.read_u16(next_offset);
+                next_offset += 2;
+                Some((Instruction::Jump{jump_distance: offset}, next_offset))
+            },
+            OpCode::JumpIfFalse => {
+                let offset = self.read_u16(next_offset);
+                next_offset += 2;
+                Some((Instruction::JumpIfFalse{jump_distance: offset}, next_offset))
+            },
         }
     }
 
@@ -255,7 +302,11 @@ impl Chunk {
         InstructionIter { 
             chunk: self,
             offset: 0 }
-    } 
+    }
+
+    pub fn size(&self) -> usize {
+        self.code.len()
+    }
 
 }
 
