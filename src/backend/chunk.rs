@@ -127,6 +127,96 @@ impl Chunk {
         u32::from_be_bytes(bytes) 
     }
 
+    pub fn read_instruction(&self, offset: usize) -> Option<(Instruction, usize)> {
+
+        let op_code_opt = self.read(offset);
+        let mut next_offset = offset + 1;
+
+        if op_code_opt.is_none() {
+            return None;
+        }
+
+        let op_code = op_code_opt.unwrap().clone();
+        let op_code_res: Result<OpCode, String> = op_code.try_into();
+
+        if op_code_res.is_err() {
+            return None;
+        }
+
+        match op_code_res.unwrap() {
+            OpCode::Constant => {
+                let value_idx_opt = self.read(next_offset);
+                next_offset += 1;
+                match value_idx_opt {
+                    Some(value_idx) => 
+                        Some((Instruction::Constant { value_idx: value_idx.clone() }, next_offset)),
+                    None => None
+                }
+            },
+            OpCode::ConstantLong => {
+                let value_idx = self.read_u32(next_offset);
+                next_offset += 4;
+                Some((Instruction::ConstantLong { value_idx: value_idx.clone() }, 
+                    next_offset))
+            },
+            OpCode::Nil => 
+                Some((Instruction::Nil, next_offset)),
+            OpCode::True => 
+                Some((Instruction::True, next_offset)),
+            OpCode::False => 
+                Some((Instruction::False, next_offset)),
+            OpCode::Negate =>
+                Some((Instruction::Negate, next_offset)),
+            OpCode::Not =>
+                Some((Instruction::Not, next_offset)),
+            OpCode::Equal =>
+                Some((Instruction::Equal, next_offset)),
+            OpCode::Greater =>
+                Some((Instruction::Greater, next_offset)),
+            OpCode::Less =>
+                Some((Instruction::Less, next_offset)),
+            OpCode::Add =>
+                Some((Instruction::Add, next_offset)),
+            OpCode::Subtract =>
+                Some((Instruction::Subtract, next_offset)),
+            OpCode::Multiply =>
+                Some((Instruction::Multiply, next_offset)),
+            OpCode::Divide =>
+                Some((Instruction::Divide, next_offset)),
+            OpCode::Return => 
+                Some((Instruction::Return, next_offset)),
+            OpCode::Print => 
+                Some((Instruction::Print, next_offset)),
+            OpCode::Pop =>
+                Some((Instruction::Pop, next_offset)),
+            OpCode::DefineGlobal => {
+                    let global_idx = self.read_u32(next_offset);
+                    next_offset += 4;
+                    Some((Instruction::DefineGlobal{ global_idx }, next_offset))
+                },
+            OpCode::GetGlobal => {
+                    let global_idx = self.read_u32(next_offset);
+                    next_offset += 4;
+                    Some((Instruction::GetGlobal{ global_idx }, next_offset))
+                },
+            OpCode::SetGlobal => {
+                    let global_idx = self.read_u32(next_offset);
+                    next_offset += 4;
+                    Some((Instruction::SetGlobal{ global_idx }, next_offset))
+                },
+            OpCode::GetLocal => {
+                    let local_idx = self.read_u32(next_offset);
+                    next_offset += 4;
+                    Some((Instruction::GetLocal{ local_idx }, next_offset))
+                },
+            OpCode::SetLocal => {
+                    let local_idx = self.read_u32(next_offset);
+                    next_offset += 4;
+                    Some((Instruction::SetLocal{ local_idx }, next_offset))
+            },
+        }
+    }
+
     pub fn add_value(&mut self, value: Value) -> usize {
         if let Value::Str(sref) = &value {
             let s = sref.get_string();
@@ -180,93 +270,12 @@ impl <'a> Iterator for InstructionIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         
-        let offset = self.offset;
-        
-        let op_code_opt = self.chunk.read(self.offset);
-        self.offset += 1;
-
-        if op_code_opt.is_none() {
-            return None;
-        }
-
-        let op_code = op_code_opt.unwrap().clone();
-        let op_code_res: Result<OpCode, String> = op_code.try_into();
-
-        if op_code_res.is_err() {
-            return None;
-        }
-
-        match op_code_res.unwrap() {
-            OpCode::Constant => {
-                let value_idx_opt = self.chunk.read(self.offset);
-                self.offset += 1;
-                match value_idx_opt {
-                    Some(value_idx) => 
-                    Some((Instruction::Constant { value_idx: value_idx.clone() }, offset)),
-                    None => None
-                } 
-            },
-            OpCode::ConstantLong => {
-                let value_idx = self.chunk.read_u32(self.offset);
-                self.offset += 4;
-                Some((Instruction::ConstantLong { value_idx: value_idx.clone() }, 
-                    offset))
-            },
-            OpCode::Nil => 
-                Some((Instruction::Nil, offset)),
-            OpCode::True => 
-                Some((Instruction::True, offset)),
-            OpCode::False => 
-                Some((Instruction::False, offset)),
-            OpCode::Negate =>
-                Some((Instruction::Negate, offset)),
-            OpCode::Not =>
-                Some((Instruction::Not, offset)),
-            OpCode::Equal =>
-                Some((Instruction::Equal, offset)),
-            OpCode::Greater =>
-                Some((Instruction::Greater, offset)),
-            OpCode::Less =>
-                Some((Instruction::Less, offset)),
-            OpCode::Add =>
-                Some((Instruction::Add, offset)),
-            OpCode::Subtract =>
-                Some((Instruction::Subtract, offset)),
-            OpCode::Multiply =>
-                Some((Instruction::Multiply, offset)),
-            OpCode::Divide =>
-                Some((Instruction::Divide, offset)),
-            OpCode::Return => 
-                Some((Instruction::Return, offset)),
-            OpCode::Print => 
-                Some((Instruction::Print, offset)),
-            OpCode::Pop =>
-                Some((Instruction::Pop, offset)),
-            OpCode::DefineGlobal => {
-                    let global_idx = self.chunk.read_u32(self.offset);
-                    self.offset += 4;
-                    Some((Instruction::DefineGlobal{ global_idx }, offset))
-                },
-            OpCode::GetGlobal => {
-                    let global_idx = self.chunk.read_u32(self.offset);
-                    self.offset += 4;
-                    Some((Instruction::GetGlobal{ global_idx }, offset))
-                },
-            OpCode::SetGlobal => {
-                    let global_idx = self.chunk.read_u32(self.offset);
-                    self.offset += 4;
-                    Some((Instruction::SetGlobal{ global_idx }, offset))
-                },
-            OpCode::GetLocal => {
-                    let local_idx = self.chunk.read_u32(self.offset);
-                    self.offset += 4;
-                    Some((Instruction::GetLocal{ local_idx }, offset))
-                },
-            OpCode::SetLocal => {
-                    let local_idx = self.chunk.read_u32(self.offset);
-                    self.offset += 4;
-                    Some((Instruction::SetLocal{ local_idx }, offset))
-            },
+        if let Some((instr, new_offset)) = self.chunk.read_instruction(self.offset) {
+            let item = Some((instr, self.offset));
+            self.offset = new_offset;
+            item
+        } else {
+            None
         }
     }
 }

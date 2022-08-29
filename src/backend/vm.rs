@@ -11,6 +11,7 @@ pub enum InterpretResult {
 
 pub struct VM {
     chunk: Chunk,
+    ip: usize, // <-- instruction pointer
     stack: RefCell<Vec<Value>>,
     globals: RefCell<HashMap<String, Value>>,
 }
@@ -23,6 +24,7 @@ impl VM {
     pub fn new_with_chunk(chunk: Chunk) -> VM {
         VM {
             chunk,
+            ip: 0,
             stack: RefCell::new(Vec::new()),
             globals: RefCell::new(HashMap::new()),
         }
@@ -36,14 +38,17 @@ impl VM {
         self.chunk.add_value(value)
     }
 
-    pub fn run(&self) -> InterpretResult {
+    pub fn run(&mut self) -> InterpretResult {
 
-        for (instr, offset) in self.chunk.instruction_iter() {
+        while let Some((instr, next_offset)) = self.chunk.read_instruction(self.ip){
             
             if cfg!(trace_run) {
                 self.show_stack();
                 println!("{}", disassemble_instruction(&self.chunk, &instr));
             }
+
+            let offset = self.ip;
+            self.ip = next_offset;
 
             let result = match  instr {
                 Instruction::Return => 
