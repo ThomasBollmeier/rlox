@@ -94,6 +94,8 @@ impl VM {
                     self.interpret_jump(offset, jump_distance), 
                 Instruction::JumpIfFalse { jump_distance } =>
                     self.interpret_jump_if_false(offset, jump_distance), 
+                Instruction::Loop { jump_distance } =>
+                    self.interpret_loop(offset, jump_distance),
             };
 
             if let Some(result) = result {
@@ -163,6 +165,7 @@ impl VM {
                 let varname = s.get_manager().borrow().deref(s).clone();
                 let value = self.peek(0).unwrap();
                 self.globals.borrow_mut().insert(varname, value);
+                self.pop();
             },
             _ => {
                 self.print_runtime_error(line, "Expected string value.");
@@ -212,7 +215,7 @@ impl VM {
                 let varname = s.get_manager().borrow().deref(s).clone();
                 let mut globals = self.globals.borrow_mut();
                 if globals.contains_key(&varname) {
-                    let new_value = self.pop();
+                    let new_value = self.peek(0).unwrap();
                     globals.insert(varname, new_value);
                 } else {
                     self.print_runtime_error(line, 
@@ -252,6 +255,11 @@ impl VM {
         if Self::is_falsey(&condition) {
             self.ip = offset + jump_distance as usize;
         }
+        None
+    }
+
+    fn interpret_loop(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
+        self.ip = offset - jump_distance as usize;
         None
     }
 

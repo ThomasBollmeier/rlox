@@ -140,3 +140,21 @@ fn interpret_or() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_while() {
+    
+    let source = "
+        var counter = 10;
+        while (counter >= 0) {
+            if (counter > 0)
+                print counter;
+            else
+                print \"Lift off!\";
+            counter = counter - 1;
+        }
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

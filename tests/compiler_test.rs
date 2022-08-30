@@ -145,6 +145,20 @@ fn compile_or() {
     compile_code(source, "or");
 }
 
+#[test]
+fn compile_while() {
+
+    let source = "
+        var counter = 10;
+        while (counter >= 0) {
+            print counter;
+            counter = counter - 1;
+        }
+    ";
+
+    compile_code(source, "while");
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";

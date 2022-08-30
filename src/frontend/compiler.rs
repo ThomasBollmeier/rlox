@@ -286,6 +286,8 @@ impl <'a> Compiler<'a> {
             self.print_statement(chunk);
         } else if self.is_match(TokenType::If) {
             self.if_statement(chunk);
+        } else if self.is_match(TokenType::While) {
+            self.while_statement(chunk);
         } else if self.is_match(TokenType::LeftBrace) {
             self.begin_scope();
             self.block(chunk);
@@ -323,6 +325,33 @@ impl <'a> Compiler<'a> {
 
         jump_delta = (offset_end - offset_jump) as u16;
         chunk.update_jump_offset(offset_jump, jump_delta);
+
+    }
+
+    fn while_statement(&mut self, chunk: &mut Chunk) {
+
+        let loop_start = chunk.size();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
+        self.expression(chunk);
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+    
+        let jump_if_false = chunk.size();        
+        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        self.emit_instruction(chunk, Instruction::Pop);
+        self.statement(chunk);
+ 
+        let loop_end = chunk.size();
+        self.emit_instruction(chunk, Instruction::Loop { jump_distance: 0 });
+
+        let end = chunk.size();
+        self.emit_instruction(chunk, Instruction::Pop);
+
+        let mut jump_delta = (end - jump_if_false) as u16;
+        chunk.update_jump_offset(jump_if_false, jump_delta);    
+
+        jump_delta = (loop_end - loop_start) as u16;
+        chunk.update_jump_offset(loop_end, jump_delta);
 
     }
 
