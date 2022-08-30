@@ -110,3 +110,33 @@ fn interpret_if() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_and() {
+    
+    let source = "
+        var answer = true and 42;
+        print answer;
+
+        answer = false and 23;
+        print answer;
+    ";
+
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
+
+#[test]
+fn interpret_or() {
+    
+    let source = "
+        var answer = false or 42;
+        print answer;
+
+        answer = true or 23;
+        print answer;
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

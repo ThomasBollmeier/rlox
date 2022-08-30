@@ -163,6 +163,18 @@ impl <'a> Compiler<'a> {
             binary(), 
             Precedence::Comparison
         );
+        self.parse_rules.register(
+            TokenType::And, 
+            None, 
+            and(), 
+            Precedence::And
+        );
+        self.parse_rules.register(
+            TokenType::Or, 
+            None, 
+            or(), 
+            Precedence::Or
+        );
 
     }
 
@@ -312,6 +324,35 @@ impl <'a> Compiler<'a> {
         jump_delta = (offset_end - offset_jump) as u16;
         chunk.update_jump_offset(offset_jump, jump_delta);
 
+    }
+
+    fn and(&mut self, chunk: &mut Chunk, _can_assign: bool) {
+
+        let jump_if_false = chunk.size();
+        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        self.emit_instruction(chunk, Instruction::Pop);
+        self.parse_precedence(Precedence::And, chunk);
+        let end = chunk.size();
+        let jump_delta = (end - jump_if_false) as u16;
+        chunk.update_jump_offset(jump_if_false, jump_delta);
+
+    }
+
+    fn or(&mut self, chunk: &mut Chunk, _can_assign: bool) {
+
+        let jump_if_false = chunk.size();
+        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        let jump = chunk.size();
+        self.emit_instruction(chunk, Instruction::Jump { jump_distance: 0 });
+        let pop = chunk.size();
+        self.emit_instruction(chunk, Instruction::Pop);
+        self.parse_precedence(Precedence::And, chunk);
+        let end = chunk.size();
+        let mut jump_delta = (pop - jump_if_false) as u16;
+        chunk.update_jump_offset(jump_if_false, jump_delta);
+        jump_delta = (end - jump) as u16;
+        chunk.update_jump_offset(jump, jump_delta);
+        
     }
 
     fn begin_scope(&mut self) {
@@ -696,4 +737,12 @@ fn string() -> Option<ParseFn> {
 
 fn variable() -> Option<ParseFn> {
     Some(|comp, chunk, can_assign| comp.variable(chunk, can_assign))
+}
+
+fn and() -> Option<ParseFn> {
+    Some(|comp, chunk, can_assign| comp.and(chunk, can_assign))
+}
+
+fn or() -> Option<ParseFn> {
+    Some(|comp, chunk, can_assign| comp.or(chunk, can_assign))
 }

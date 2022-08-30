@@ -117,6 +117,34 @@ fn compile_if() {
     compile_code(source, "if");
 }
 
+#[test]
+fn compile_and() {
+
+    let source = "
+        var answer = true and 42;
+        print answer;
+
+        answer = false and 23;
+        print answer;
+    ";
+
+    compile_code(source, "and");
+}
+
+#[test]
+fn compile_or() {
+
+    let source = "
+        var answer = false or 42;
+        print answer;
+
+        answer = true or 23;
+        print answer;
+    ";
+
+    compile_code(source, "or");
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";
