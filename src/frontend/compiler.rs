@@ -1,4 +1,4 @@
-use std::{collections::{VecDeque}, cell::RefCell, rc::Rc};
+use std::{collections::VecDeque, cell::RefCell, rc::Rc};
 use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
@@ -284,6 +284,8 @@ impl <'a> Compiler<'a> {
     fn statement(&mut self, chunk: &mut Chunk) {
         if self.is_match(TokenType::Print) {
             self.print_statement(chunk);
+        } else if self.is_match(TokenType::For) {
+            self.for_statement(chunk);
         } else if self.is_match(TokenType::If) {
             self.if_statement(chunk);
         } else if self.is_match(TokenType::While) {
@@ -297,6 +299,85 @@ impl <'a> Compiler<'a> {
         }
     }
 
+    fn for_statement(&mut self, chunk: &mut Chunk) {
+
+        self.begin_scope();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'.");
+        
+        // Initializer clause:
+        if self.is_match(TokenType::Semicolon) {
+            // no initializer
+        } else if self.is_match(TokenType::Var) {
+            self.var_declaration(chunk);
+        } else {
+            self.expr_statement(chunk);
+        }
+        
+        let loop_start = chunk.size();
+        let mut cond_false_opt: Option<usize> = None;
+
+        // Condition clause:
+        if !self.is_match(TokenType::Semicolon) {
+            self.expression(chunk);
+            self.consume(TokenType::Semicolon, "Expect ';'.");
+            cond_false_opt = Some(chunk.size());
+            self.emit_jump_if_false(chunk);
+            self.emit_instruction(chunk, Instruction::Pop);
+        }
+
+        // Increment clause:
+        let mut jump_opt: Option<usize> = None;
+        let mut incr_opt: Option<usize> = None;
+
+        if !self.is_match(TokenType::RightParen) {
+
+            jump_opt = Some(chunk.size());
+            self.emit_jump(chunk);
+
+            incr_opt = Some(chunk.size());
+            self.expression(chunk);
+            self.emit_instruction(chunk, Instruction::Pop);
+            self.consume(TokenType::RightParen, "Expect ')' after for clauses.");
+        
+            let from = chunk.size();
+            let jump_distance = (from - loop_start) as u16;
+            self.emit_instruction(chunk, Instruction::Loop { jump_distance });
+        }
+    
+        if jump_opt.is_some() {
+            let body = chunk.size();
+            self.update_forward_jump(chunk, jump_opt.unwrap(), body);
+        }
+
+        self.statement(chunk);
+
+        let jump_target = if incr_opt.is_some() {
+            incr_opt.unwrap()
+        } else {
+            loop_start
+        };
+
+        let loop_end = chunk.size();
+        let jump_distance  = (loop_end - jump_target) as u16;
+        self.emit_instruction(chunk, Instruction::Loop { jump_distance });
+
+        if cond_false_opt.is_some() {
+            let after_loop = chunk.size();
+            let cond_false = cond_false_opt.unwrap();
+            self.update_forward_jump(chunk, cond_false, after_loop);
+            self.emit_instruction(chunk, Instruction::Pop);
+        }
+        
+        self.end_scope(chunk);
+        
+    }
+
+    fn update_forward_jump(&self, chunk: &mut Chunk, from: usize, to: usize) {
+        let jump_delta = (to - from) as u16;
+        chunk.update_jump_offset(from, jump_delta);
+    }
+
     fn if_statement(&mut self, chunk: &mut Chunk) {
 
         self.consume(TokenType::LeftParen, "Expect '(' after 'if'.");
@@ -304,13 +385,13 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::RightParen, "Expect ')' after condition.");
     
         let offset_jump_if_false = chunk.size();        
-        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        self.emit_jump_if_false(chunk);
         
         self.emit_instruction(chunk, Instruction::Pop);
         self.statement(chunk); // then block
         
         let offset_jump = chunk.size();
-        self.emit_instruction(chunk, Instruction::Jump { jump_distance: 0 });
+        self.emit_jump(chunk);
 
         let offset_pop = chunk.size();
         self.emit_instruction(chunk, Instruction::Pop);
@@ -337,12 +418,12 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::RightParen, "Expect ')' after condition.");
     
         let jump_if_false = chunk.size();        
-        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        self.emit_jump_if_false(chunk);
         self.emit_instruction(chunk, Instruction::Pop);
         self.statement(chunk);
  
         let loop_end = chunk.size();
-        self.emit_instruction(chunk, Instruction::Loop { jump_distance: 0 });
+        self.emit_loop(chunk);
 
         let end = chunk.size();
         self.emit_instruction(chunk, Instruction::Pop);
@@ -358,7 +439,7 @@ impl <'a> Compiler<'a> {
     fn and(&mut self, chunk: &mut Chunk, _can_assign: bool) {
 
         let jump_if_false = chunk.size();
-        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        self.emit_jump_if_false(chunk);
         self.emit_instruction(chunk, Instruction::Pop);
         self.parse_precedence(Precedence::And, chunk);
         let end = chunk.size();
@@ -370,9 +451,9 @@ impl <'a> Compiler<'a> {
     fn or(&mut self, chunk: &mut Chunk, _can_assign: bool) {
 
         let jump_if_false = chunk.size();
-        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+        self.emit_jump_if_false(chunk);
         let jump = chunk.size();
-        self.emit_instruction(chunk, Instruction::Jump { jump_distance: 0 });
+        self.emit_jump(chunk);
         let pop = chunk.size();
         self.emit_instruction(chunk, Instruction::Pop);
         self.parse_precedence(Precedence::And, chunk);
@@ -639,6 +720,18 @@ impl <'a> Compiler<'a> {
         };
         chunk.write_instruction(instr, line);
     }
+
+    fn emit_jump(&self, chunk: &mut Chunk) {
+        self.emit_instruction(chunk, Instruction::Jump { jump_distance: 0 });
+    } 
+
+    fn emit_jump_if_false(&self, chunk: &mut Chunk) {
+        self.emit_instruction(chunk, Instruction::JumpIfFalse { jump_distance: 0 });
+    } 
+
+    fn emit_loop(&self, chunk: &mut Chunk) {
+        self.emit_instruction(chunk, Instruction::Loop { jump_distance: 0 });
+    } 
 
     fn consume(&mut self, expected_type: TokenType, message: &str) {
         if let Some(current) = &self.current { 

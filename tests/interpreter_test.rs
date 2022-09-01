@@ -158,3 +158,19 @@ fn interpret_while() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_for() {
+    
+    let source = "
+        for (var counter = 5; counter >= 0; counter = counter - 1) {
+            if (counter > 0)
+                print counter;
+            else
+                print \"Lift off!\";
+        }
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
