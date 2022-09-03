@@ -159,6 +159,23 @@ fn compile_while() {
     compile_code(source, "while");
 }
 
+#[test]
+fn compile_switch() {
+
+    let source = "
+        var number = 10;
+        switch (number) {
+            case 42:
+                print \"the answer: \";
+                print number;
+            default:
+                print \"some number\";
+        }
+    ";
+
+    compile_code(source, "switch");
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";

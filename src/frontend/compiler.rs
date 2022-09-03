@@ -290,6 +290,8 @@ impl <'a> Compiler<'a> {
             self.if_statement(chunk);
         } else if self.is_match(TokenType::While) {
             self.while_statement(chunk);
+        } else if self.is_match(TokenType::Switch) {
+            self.switch_statement(chunk);
         } else if self.is_match(TokenType::LeftBrace) {
             self.begin_scope();
             self.block(chunk);
@@ -436,6 +438,91 @@ impl <'a> Compiler<'a> {
 
     }
 
+    fn switch_statement(&mut self, chunk: &mut Chunk) {
+
+        let switch_token = self.previous.clone().unwrap();
+
+        self.begin_scope();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after 'switch'.");
+        self.expression(chunk);
+        self.consume(TokenType::RightParen, "Expect ')' after expression.");
+        self.consume(TokenType::LeftBrace, "Expect '{'.");
+
+        // Set expression value as local variable:
+        self.locals.push(Local { 
+            name: switch_token, 
+            depth: self.curr_depth, 
+        });
+        let local_idx = (self.locals.len() - 1) as u32;
+        self.emit_instruction(chunk, Instruction::SetLocal { local_idx });
+
+        let mut exit_jumps: Vec<usize> = vec![];
+        let mut check_eq_opt: Option<usize> = None;
+
+        loop {
+            if self.is_match(TokenType::Case) {
+                if check_eq_opt.is_some() {
+                    let from = check_eq_opt.unwrap();
+                    let to = chunk.size();
+                    self.update_forward_jump(chunk, from, to);
+                    self.emit_instruction(chunk, Instruction::Pop);
+                }
+                self.expression(chunk);
+                self.emit_instruction(chunk, Instruction::GetLocal { local_idx });
+                self.emit_instruction(chunk, Instruction::Equal);
+                check_eq_opt = Some(chunk.size());
+                self.emit_jump_if_false(chunk);
+                self.emit_instruction(chunk, Instruction::Pop);
+                self.consume(TokenType::Colon, "Expect ':' after case expression.");
+                self.case_statements(chunk);
+                exit_jumps.push(chunk.size());
+                self.emit_jump(chunk);
+            } else if self.is_match(TokenType::Default) {
+                if check_eq_opt.is_some() {
+                    let from = check_eq_opt.unwrap();
+                    let to = chunk.size();
+                    self.update_forward_jump(chunk, from, to);
+                    self.emit_instruction(chunk, Instruction::Pop);
+                    check_eq_opt = None;
+                }
+                self.consume(TokenType::Colon, "Expect ':' after 'default'.");
+                self.case_statements(chunk);
+                exit_jumps.push(chunk.size());
+                self.emit_jump(chunk);
+                break;
+            } else {
+                break;
+            }
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' at end of switch statement.");
+
+        let exit = chunk.size();
+
+        if check_eq_opt.is_some() {
+            let from = check_eq_opt.unwrap();
+            self.update_forward_jump(chunk, from, exit);
+            self.emit_instruction(chunk, Instruction::Pop);
+        }
+
+        exit_jumps.iter().for_each(|exit_jump| {
+            self.update_forward_jump(chunk, *exit_jump, exit);
+        });
+
+        self.end_scope(chunk);
+    }
+
+    fn case_statements(&mut self, chunk: &mut Chunk) {
+        while 
+            !self.check(TokenType::Case) &&
+            !self.check(TokenType::Default) &&
+            !self.check(TokenType::RightBrace) {
+
+            self.statement(chunk);
+        }
+    }
+
     fn and(&mut self, chunk: &mut Chunk, _can_assign: bool) {
 
         let jump_if_false = chunk.size();
@@ -456,7 +543,7 @@ impl <'a> Compiler<'a> {
         self.emit_jump(chunk);
         let pop = chunk.size();
         self.emit_instruction(chunk, Instruction::Pop);
-        self.parse_precedence(Precedence::And, chunk);
+        self.parse_precedence(Precedence::Or, chunk);
         let end = chunk.size();
         let mut jump_delta = (pop - jump_if_false) as u16;
         chunk.update_jump_offset(jump_if_false, jump_delta);

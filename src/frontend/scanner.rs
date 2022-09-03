@@ -32,6 +32,9 @@ impl <'a> Scanner<'a> {
         keywords.insert("true".to_string(), TokenType::True);
         keywords.insert("var".to_string(), TokenType::Var);
         keywords.insert("while".to_string(), TokenType::While);
+        keywords.insert("switch".to_string(), TokenType::Switch);
+        keywords.insert("case".to_string(), TokenType::Case);
+        keywords.insert("default".to_string(), TokenType::Default);
 
         Scanner {
             source_iter: source.chars(),
@@ -73,6 +76,7 @@ impl <'a> Scanner<'a> {
             '{' => self.make_token(TokenType::LeftBrace),
             '}' => self.make_token(TokenType::RightBrace),
             ';' => self.make_token(TokenType::Semicolon),
+            ':' => self.make_token(TokenType::Colon),
             ',' => self.make_token(TokenType::Comma),
             '.' => self.make_token(TokenType::Dot),
             '-' => self.make_token(TokenType::Minus),

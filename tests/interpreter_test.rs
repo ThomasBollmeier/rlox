@@ -142,6 +142,19 @@ fn interpret_or() {
 }
 
 #[test]
+fn interpret_logical() {
+    
+    let source = "
+        var answer = false or true and 42;
+        print answer;
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
+
+
+#[test]
 fn interpret_while() {
     
     let source = "
@@ -168,6 +181,24 @@ fn interpret_for() {
                 print counter;
             else
                 print \"Lift off!\";
+        }
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
+
+#[test]
+fn interpret_switch() {
+    
+    let source = "
+        var number = 42;
+        switch (number) {
+            case 42:
+                print \"the answer: \";
+                print number;
+            default:
+                print \"some number\";
         }
     ";
     

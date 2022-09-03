@@ -41,6 +41,7 @@ pub enum TokenType {
     Minus,
     Plus,
     Semicolon,
+    Colon,
     Slash,
     Star,
     // one or two character tokens:
@@ -73,6 +74,9 @@ pub enum TokenType {
     True,
     Var,
     While,
+    Switch,
+    Case,
+    Default,
     // miscellaneous:
     Error,
     Eof,

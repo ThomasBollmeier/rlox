@@ -103,7 +103,13 @@ impl VM {
             }
 
         }
-        InterpretResult::Ok
+
+        if self.stack.borrow().is_empty() {
+            InterpretResult::Ok
+        } else {
+            InterpretResult::RuntimeError
+        }
+        
     }
 
     fn get_line(&self, offset: usize) -> i32 {
