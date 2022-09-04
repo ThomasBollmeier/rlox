@@ -176,6 +176,39 @@ fn compile_switch() {
     compile_code(source, "switch");
 }
 
+#[test]
+fn continue_inside_loop() {
+
+    let source = "
+        for (var i = 0; i < 5; i = i + 1)
+        {
+            var message = \"Hallo!\";
+            if (i == 2) continue;
+            print i;
+        }
+    ";
+
+    compile_code(source, "continue_for");
+}
+
+#[test]
+fn continue_not_allowed_outside_loop() {
+
+    let source = "
+        {
+            var answer = 42;
+            continue;
+        }
+    ";
+
+    let mut compiler = Compiler::new(source);
+    let mut chunk = Chunk::new();
+
+    let ok = compiler.compile(&mut chunk);
+    
+    assert!(!ok); 
+}
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";

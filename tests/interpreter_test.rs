@@ -205,3 +205,37 @@ fn interpret_switch() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_continue_in_for() {
+    
+    let source = "
+        for (var i = 0; i < 10; i = i + 1)
+        {
+            var message = \"Hallo!\";
+            if (i == 2 or i == 3 or i == 5) continue;
+            print i;
+        }
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
+
+#[test]
+fn interpret_continue_in_while() {
+    
+    let source = "
+        var i = -1;
+        while (i < 9)
+        {
+            var message = \"Hallo!\";
+            i = i + 1;
+            if (i == 2 or i == 3 or i == 5) continue;
+            print i;
+        }
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

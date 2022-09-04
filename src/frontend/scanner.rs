@@ -17,7 +17,10 @@ impl <'a> Scanner<'a> {
         let mut keywords = HashMap::new();
 
         keywords.insert("and".to_string(), TokenType::And);
+        keywords.insert("case".to_string(), TokenType::Case);
         keywords.insert("class".to_string(), TokenType::Class);
+        keywords.insert("continue".to_string(), TokenType::Continue);
+        keywords.insert("default".to_string(), TokenType::Default);
         keywords.insert("else".to_string(), TokenType::Else);
         keywords.insert("false".to_string(), TokenType::False);
         keywords.insert("for".to_string(), TokenType::For);
@@ -28,14 +31,12 @@ impl <'a> Scanner<'a> {
         keywords.insert("print".to_string(), TokenType::Print);
         keywords.insert("return".to_string(), TokenType::Return);
         keywords.insert("super".to_string(), TokenType::Super);
+        keywords.insert("switch".to_string(), TokenType::Switch);
         keywords.insert("this".to_string(), TokenType::This);
         keywords.insert("true".to_string(), TokenType::True);
         keywords.insert("var".to_string(), TokenType::Var);
         keywords.insert("while".to_string(), TokenType::While);
-        keywords.insert("switch".to_string(), TokenType::Switch);
-        keywords.insert("case".to_string(), TokenType::Case);
-        keywords.insert("default".to_string(), TokenType::Default);
-
+        
         Scanner {
             source_iter: source.chars(),
             lookahead: VecDeque::new(),

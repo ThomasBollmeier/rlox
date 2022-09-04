@@ -7,6 +7,12 @@ struct Local {
     depth: usize, // scope depth
 }
 
+#[derive(Clone)]
+struct Loop {
+    depth: usize, // scope depth of loop
+    continue_target: usize, // offset to jump to from continue
+}
+
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     lookahead: VecDeque<Token>,
@@ -17,6 +23,7 @@ pub struct Compiler<'a> {
     parse_rules: ParseRules,
     heap_manager: Rc<RefCell<HeapManager>>,
     locals: Vec<Local>,
+    loops: Vec<Loop>,
     curr_depth: usize,
 }
 
@@ -38,7 +45,8 @@ impl <'a> Compiler<'a> {
             panic_mode: false,
             parse_rules: ParseRules::new(),
             heap_manager: heap_manager.clone(),
-            locals: Vec::new(),
+            locals: vec![],
+            loops: vec![],
             curr_depth: 0,
         };
 
@@ -296,6 +304,8 @@ impl <'a> Compiler<'a> {
             self.begin_scope();
             self.block(chunk);
             self.end_scope(chunk);
+        } else if self.is_match(TokenType::Continue) {
+            self.continue_statement(chunk);
         } else {
             self.expr_statement(chunk);
         }
@@ -346,6 +356,17 @@ impl <'a> Compiler<'a> {
             let jump_distance = (from - loop_start) as u16;
             self.emit_instruction(chunk, Instruction::Loop { jump_distance });
         }
+
+        let continue_target = if let Some(incr) = incr_opt {
+            incr
+        } else {
+            loop_start
+        };
+
+        self.loops.push(Loop { 
+            depth: self.curr_depth, 
+            continue_target, 
+        });
     
         if jump_opt.is_some() {
             let body = chunk.size();
@@ -370,6 +391,8 @@ impl <'a> Compiler<'a> {
             self.update_forward_jump(chunk, cond_false, after_loop);
             self.emit_instruction(chunk, Instruction::Pop);
         }
+
+        self.loops.pop();
         
         self.end_scope(chunk);
         
@@ -415,6 +438,11 @@ impl <'a> Compiler<'a> {
 
         let loop_start = chunk.size();
 
+        self.loops.push(Loop { 
+            depth: self.curr_depth, 
+            continue_target: loop_start, 
+        });
+
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
         self.expression(chunk);
         self.consume(TokenType::RightParen, "Expect ')' after condition.");
@@ -435,6 +463,8 @@ impl <'a> Compiler<'a> {
 
         jump_delta = (loop_end - loop_start) as u16;
         chunk.update_jump_offset(loop_end, jump_delta);
+
+        self.loops.pop();
 
     }
 
@@ -570,6 +600,17 @@ impl <'a> Compiler<'a> {
                 break;
             }
         } 
+
+    }
+
+    fn emit_pops_on_scope_exit(&self, chunk: &mut Chunk, target_depth: usize) {
+        for local in self.locals.iter().rev() {
+            if local.depth > target_depth {
+                self.emit_instruction(chunk, Instruction::Pop);
+            } else {
+                break;
+            }
+        }
     }
 
     fn resolve_local_idx(&self, name: &Token) -> Option<usize> {
@@ -609,6 +650,23 @@ impl <'a> Compiler<'a> {
         self.expression(chunk);
         self.consume(TokenType::Semicolon, "Expect ';' after value.");
         self.emit_instruction(chunk, Instruction::Print)
+    }
+
+    fn continue_statement(&mut self, chunk: &mut Chunk) {
+
+        let last_loop = self.loops.last();
+
+        if last_loop.is_some() {
+            let loop_data = last_loop.unwrap().clone();
+            self.emit_pops_on_scope_exit(chunk, loop_data.depth);
+            let jump_distance = (chunk.size() - loop_data.continue_target) as u16;
+            self.emit_instruction(chunk, Instruction::Loop { jump_distance })
+        } else {
+            self.error_at_current("'continue' can only be used in a loop context.");
+            return;
+        }
+        
+        self.consume(TokenType::Semicolon, "Expect ';' after continue.");
     }
 
     fn expr_statement(&mut self, chunk: &mut Chunk) {
