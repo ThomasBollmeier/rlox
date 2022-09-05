@@ -280,6 +280,8 @@ impl <'a> Scanner<'a> {
             if let Some(ch) = self.peek(0) {
                 if ch != '\n' {
                     self.advance();
+                } else {
+                    break;
                 }
             } else {
                 break;
@@ -420,6 +422,23 @@ mod tests {
             tokens[12],
             Token::new(Eof, "".to_string(), 5)
         );
+
+    }
+
+    #[test]
+    fn scan_with_comments() {
+
+        let source = "
+            // Almost the answer to everything
+            var answer = 41;
+            print answer; // a comment
+        ";
+        
+        let tokens: Vec<Token> = scan(source);
+
+        for token in tokens {
+            println!("{}", token.get_lexeme());
+        }
 
     }
 
