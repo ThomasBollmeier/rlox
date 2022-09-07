@@ -1,4 +1,6 @@
-use super::heap::{HeapObject, HeapRef, HeapManager};
+use std::{fmt::Display, rc::Rc, cell::RefCell};
+
+use super::{heap::{HeapObject, HeapRef, HeapManager}, chunk::Chunk};
 
 impl HeapObject for String {
     
@@ -24,6 +26,51 @@ impl HeapRef<String> {
         let hm = self.get_manager();
         let hm_ref = hm.borrow();
         hm_ref.deref(self).to_owned()
+    }
+
+}
+
+#[derive(Clone)]
+pub struct FuncData {
+    arity: u8,
+    _chunk: Rc<RefCell<Chunk>>,
+    name: String,
+}
+
+impl FuncData {
+
+    pub fn new(name: &str, arity: u8) -> FuncData {
+        FuncData { 
+            arity, 
+            _chunk: Rc::new(RefCell::new(Chunk::new())), 
+            name: name.to_string(), 
+        }
+    }
+
+}
+
+impl HeapObject for FuncData {
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for FuncData {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<fn {}/{}>", self.name, self.arity)
+    }
+}
+
+impl PartialEq for FuncData {
+
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
     }
 
 }
