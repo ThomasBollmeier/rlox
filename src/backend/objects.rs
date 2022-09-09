@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc, cell::RefCell};
+use std::{fmt::Display, rc::Rc, cell::{RefCell, RefMut, Ref}};
 
 use super::{heap::{HeapObject, HeapRef, HeapManager}, chunk::Chunk};
 
@@ -33,7 +33,7 @@ impl HeapRef<String> {
 #[derive(Clone)]
 pub struct FuncData {
     arity: u8,
-    _chunk: Rc<RefCell<Chunk>>,
+    chunk: Rc<RefCell<Chunk>>,
     name: String,
 }
 
@@ -42,9 +42,21 @@ impl FuncData {
     pub fn new(name: &str, arity: u8) -> FuncData {
         FuncData { 
             arity, 
-            _chunk: Rc::new(RefCell::new(Chunk::new())), 
+            chunk: Rc::new(RefCell::new(Chunk::new())), 
             name: name.to_string(), 
         }
+    }
+
+    pub fn new_top() -> FuncData {
+        Self::new("", 0)
+    }
+
+    pub fn borrow_chunk(&self) -> Ref<Chunk> {
+        self.chunk.borrow()
+    }
+
+    pub fn borrow_chunk_mut(&mut self) -> RefMut<Chunk> {
+        self.chunk.borrow_mut()
     }
 
 }

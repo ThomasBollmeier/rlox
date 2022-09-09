@@ -1,4 +1,6 @@
-use rlox::{frontend::compiler::Compiler, backend::{chunk::Chunk, util::disassemble}};
+use std::ops::Deref;
+
+use rlox::{frontend::compiler::Compiler, backend::util::disassemble};
 
 #[test]
 fn compile_arithmetic_expr() {
@@ -64,11 +66,9 @@ fn compile_invalid_assignment() {
     ";
 
     let mut compiler = Compiler::new(source);
-    let mut chunk = Chunk::new();
-
-    let ok = compiler.compile(&mut chunk);
+    let res = compiler.compile();
     
-    assert!(!ok); 
+    assert!(res.is_none()); 
 }
 
 #[test]
@@ -96,11 +96,10 @@ fn compile_invalid_local_def() {
     ";
 
     let mut compiler = Compiler::new(source);
-    let mut chunk = Chunk::new();
-
-    let ok = compiler.compile(&mut chunk);
+ 
+    let res = compiler.compile();
     
-    assert!(!ok); 
+    assert!(res.is_none()); 
 }
 
 #[test]
@@ -202,11 +201,10 @@ fn continue_not_allowed_outside_loop() {
     ";
 
     let mut compiler = Compiler::new(source);
-    let mut chunk = Chunk::new();
-
-    let ok = compiler.compile(&mut chunk);
+  
+    let res = compiler.compile();
     
-    assert!(!ok); 
+    assert!(res.is_none()); 
 }
 
 fn compile_expression(source: &str) {
@@ -217,11 +215,14 @@ fn compile_expression(source: &str) {
 
 fn compile_code(source: &str, name: &str) {
     let mut compiler = Compiler::new(source);
-    let mut chunk = Chunk::new();
-
-    let ok = compiler.compile(&mut chunk);
+ 
+    let func_opt = compiler.compile();
     
-    assert!(ok); 
+    assert!(func_opt.is_some()); 
+
+    let mut func = func_opt.unwrap();
+    let chunk = func.borrow_chunk_mut();
+    let chunk = chunk.deref();
 
     disassemble(&chunk,name);
 }

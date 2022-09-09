@@ -1,6 +1,6 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::{RefCell, RefMut, Ref}, collections::HashMap};
 
-use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef};
+use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef, objects::FuncData};
 
 #[derive(Debug, PartialEq)]
 pub enum InterpretResult {
@@ -9,46 +9,107 @@ pub enum InterpretResult {
     RuntimeError,
 }
 
-pub struct VM {
-    chunk: Chunk,
+pub struct CallFrame {
+    func_data: FuncData,
     ip: usize, // <-- instruction pointer
+    stack_base: usize, // <-- base offset in stack
+}
+
+impl CallFrame {
+
+    pub fn new_top() -> CallFrame {
+        Self::new_top_with_func_data(FuncData::new_top())
+    }
+
+    pub fn new_top_with_func_data(func_data: FuncData) -> CallFrame {
+        CallFrame { 
+            func_data, 
+            ip: 0, 
+            stack_base: 0 
+        }
+    }
+}
+
+pub struct VM {
+    frames: Vec<CallFrame>,
     stack: RefCell<Vec<Value>>,
     globals: RefCell<HashMap<String, Value>>,
 }
 
 impl VM {
     pub fn new() -> VM {
-        VM::new_with_chunk(Chunk::new())
+        VM::new_with_frame(CallFrame::new_top())
     }
 
-    pub fn new_with_chunk(chunk: Chunk) -> VM {
+    pub fn new_with_frame(frame: CallFrame) -> VM {
         VM {
-            chunk,
-            ip: 0,
+            frames: vec![frame],
             stack: RefCell::new(Vec::new()),
             globals: RefCell::new(HashMap::new()),
         }
     }
 
+    fn current_chunk(&self) -> Ref<Chunk> {
+        let current_frame = self.frames.last().unwrap();
+        current_frame.func_data.borrow_chunk()
+    } 
+
+    fn current_chunk_mut(&mut self) -> RefMut<Chunk> {
+        let current_frame = self.frames.last_mut().unwrap();
+        current_frame.func_data.borrow_chunk_mut()
+    } 
+
+    fn current_ip(&self) -> usize {
+        let current_frame = self.frames.last().unwrap();
+        let ret = current_frame.ip;
+        ret
+    } 
+
+    fn current_base(&self) -> usize {
+        let current_frame = self.frames.last().unwrap();
+        let ret = current_frame.stack_base;
+        ret
+    } 
+
+    fn set_current_ip(&mut self, ip: usize) {
+        let current_frame = self.frames.last_mut().unwrap();
+        current_frame.ip = ip;
+    }
+    
     pub fn add_instruction(&mut self, instr: Instruction, line: i32) {
-        self.chunk.write_instruction(instr, line);
+        let mut chunk = self.current_chunk_mut();
+        chunk.write_instruction(instr, line);
     }
 
     pub fn add_value(&mut self, value: Value) -> usize {
-        self.chunk.add_value(value)
+        let mut chunk = self.current_chunk_mut();
+        chunk.add_value(value)
     }
 
     pub fn run(&mut self) -> InterpretResult {
 
-        while let Some((instr, next_offset)) = self.chunk.read_instruction(self.ip){
-            
-            if cfg!(trace_run) {
-                self.show_stack();
-                println!("{}", disassemble_instruction(&self.chunk, &instr));
+        loop {
+
+            let instr_offs_opt = {
+                let chunk = self.current_chunk();
+                let ip = self.current_ip();
+                chunk.read_instruction(ip)
+            };
+
+            if instr_offs_opt.is_none() {
+                break;
             }
 
-            let offset = self.ip;
-            self.ip = next_offset;
+            let (instr, next_offset) = instr_offs_opt.unwrap();
+
+            if cfg!(trace_run) {
+                let chunk = self.current_chunk();
+                self.show_stack();
+                println!("{}", disassemble_instruction(&chunk, &instr));
+            }
+
+            let offset = self.current_ip();
+            self.set_current_ip(next_offset);
 
             let result = match  instr {
                 Instruction::Return => 
@@ -113,7 +174,7 @@ impl VM {
     }
 
     fn get_line(&self, offset: usize) -> i32 {
-        self.chunk.get_line(offset).unwrap_or(1)
+        self.current_chunk().get_line(offset).unwrap_or(1)
     }
 
     fn show_stack(&self) {
@@ -152,8 +213,8 @@ impl VM {
     }
 
     fn interpret_constant(&self, value_idx: usize) -> Option<InterpretResult> {
-        let value = 
-            self.chunk
+        let chunk = self.current_chunk();
+        let value = chunk
                 .read_value(value_idx)
                 .unwrap();
         self.push(value);
@@ -161,8 +222,8 @@ impl VM {
     }
 
     fn interpret_def_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
-        let value = 
-            self.chunk
+        let chunk = self.current_chunk();
+        let value = chunk
                 .read_value(global_idx)
                 .unwrap();
 
@@ -183,10 +244,10 @@ impl VM {
     }
 
     fn interpret_get_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
-        let value = 
-            self.chunk
-                .read_value(global_idx)
-                .unwrap();
+        let chunk = self.current_chunk();
+        let value = chunk
+            .read_value(global_idx)
+            .unwrap();
 
         match value {
             Value::Str(s) => {
@@ -211,10 +272,10 @@ impl VM {
     }
 
     fn interpret_set_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
-        let value = 
-            self.chunk
-                .read_value(global_idx)
-                .unwrap();
+        let chunk = self.current_chunk();
+        let value = chunk
+            .read_value(global_idx)
+            .unwrap();
 
         match value {
             Value::Str(s) => {
@@ -240,32 +301,34 @@ impl VM {
 
     fn interpret_get_local(&self, local_idx: usize) -> Option<InterpretResult> {
         let mut stack = self.stack.borrow_mut();
-        let value = stack[local_idx].clone();
+        let absolute_idx = self.current_base() + local_idx;
+        let value = stack[absolute_idx].clone();
         stack.push(value);
         None
     }
 
     fn interpret_set_local(&self, local_idx: usize) -> Option<InterpretResult> {
         let value = self.peek(0).unwrap();
-        self.stack.borrow_mut()[local_idx] = value;
+        let absolute_idx = self.current_base() + local_idx;
+        self.stack.borrow_mut()[absolute_idx] = value;
         None
     }
 
     fn interpret_jump(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
-        self.ip = offset + jump_distance as usize;
+        self.set_current_ip(offset + jump_distance as usize);
         None
     }
 
     fn interpret_jump_if_false(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
         let condition = self.peek(0).unwrap();
         if Self::is_falsey(&condition) {
-            self.ip = offset + jump_distance as usize;
+            self.set_current_ip(offset + jump_distance as usize);
         }
         None
     }
 
     fn interpret_loop(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
-        self.ip = offset - jump_distance as usize;
+        self.set_current_ip(offset - jump_distance as usize);
         None
     }
 

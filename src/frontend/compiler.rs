@@ -1,5 +1,5 @@
-use std::{collections::VecDeque, cell::RefCell, rc::Rc};
-use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager};
+use std::{collections::VecDeque, cell::RefCell, rc::Rc, ops::{DerefMut}};
+use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager, objects::FuncData};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
 struct Local {
@@ -186,19 +186,31 @@ impl <'a> Compiler<'a> {
 
     }
 
-    pub fn compile(&mut self, chunk: &mut Chunk) -> bool {
-        self.had_error = false;
-        self.panic_mode = false;
+    pub fn compile(&mut self) -> Option<FuncData> {
         
-        self.advance();
+        let mut top = FuncData::new_top();
         
-        while !self.is_match(TokenType::Eof) {
-            self.declaration(chunk);
+        {
+            let mut chunk = top.borrow_chunk_mut();
+            let chunk = chunk.deref_mut();
+            self.had_error = false;
+            self.panic_mode = false;
+        
+            self.advance();
+        
+            while !self.is_match(TokenType::Eof) {
+                self.declaration(chunk);
+            }
+        
+            self.end_compiler(chunk);
+        
         }
-        
-        self.end_compiler(chunk);
-        
-        !self.had_error
+
+        if !self.had_error {
+            Some(top)
+        } else {
+            None
+        }
     }
 
     fn declaration(&mut self, chunk: &mut Chunk) {
