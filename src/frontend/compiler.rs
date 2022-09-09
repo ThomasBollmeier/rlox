@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, cell::RefCell, rc::Rc, ops::{DerefMut}};
+use std::{collections::VecDeque, cell::{RefCell}, rc::Rc, ops::{DerefMut}};
 use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager, objects::FuncData};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
@@ -13,6 +13,12 @@ struct Loop {
     continue_target: usize, // offset to jump to from continue
 }
 
+struct Environment {
+    pub locals: Vec<Local>,
+    pub loops: Vec<Loop>,
+    pub curr_depth: usize,
+}
+
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     lookahead: VecDeque<Token>,
@@ -22,9 +28,7 @@ pub struct Compiler<'a> {
     panic_mode: bool,
     parse_rules: ParseRules,
     heap_manager: Rc<RefCell<HeapManager>>,
-    locals: Vec<Local>,
-    loops: Vec<Loop>,
-    curr_depth: usize,
+    envs: Vec<Environment>,
 }
 
 impl <'a> Compiler<'a> {
@@ -45,10 +49,10 @@ impl <'a> Compiler<'a> {
             panic_mode: false,
             parse_rules: ParseRules::new(),
             heap_manager: heap_manager.clone(),
-            locals: vec![],
-            loops: vec![],
-            curr_depth: 0,
+            envs: vec![],
         };
+
+        ret.begin_env();
 
         ret.init_parse_rules();
 
@@ -186,6 +190,43 @@ impl <'a> Compiler<'a> {
 
     }
 
+    fn begin_env(&mut self) {
+        self.envs.push(Environment {
+            locals: vec![],
+            loops: vec![],
+            curr_depth: 0,
+        });
+    }
+
+    fn end_env(&mut self) {
+        self.envs.pop();
+    }
+
+    fn current_depth(&self) -> usize {
+        self.envs.last().unwrap().curr_depth
+    }
+
+    fn set_current_depth(&mut self, depth: usize) {
+        let env = self.envs.last_mut().unwrap();
+        env.curr_depth = depth;
+    }
+
+    fn locals(&self) -> &Vec<Local> {
+        self.envs.last().unwrap().locals.as_ref()
+    }
+
+    fn locals_mut(&mut self) -> &mut Vec<Local> {
+        self.envs.last_mut().unwrap().locals.as_mut()
+    }
+
+    fn loops(&self) -> &Vec<Loop> {
+        self.envs.last().unwrap().loops.as_ref()
+    }
+
+    fn loops_mut(&mut self) -> &mut Vec<Loop> {
+        self.envs.last_mut().unwrap().loops.as_mut()
+    }
+
     pub fn compile(&mut self) -> Option<FuncData> {
         
         let mut top = FuncData::new_top();
@@ -215,7 +256,9 @@ impl <'a> Compiler<'a> {
 
     fn declaration(&mut self, chunk: &mut Chunk) {
 
-        if self.is_match(TokenType::Var) {
+        if self.is_match(TokenType::Fun ) {
+            self.fun_declaration(chunk);
+        } else if self.is_match(TokenType::Var) {
             self.var_declaration(chunk);
         } else {
             self.statement(chunk);
@@ -226,13 +269,54 @@ impl <'a> Compiler<'a> {
         }
     }
 
+    fn fun_declaration(&mut self, chunk: &mut Chunk) {
+
+        self.consume(TokenType::Identifier, "Expect function name.");
+        let fun_name_tok = self.previous.as_ref().unwrap().clone();
+
+        let idx_opt = self.resolve_local_idx_w_min_depth(&fun_name_tok, self.current_depth());
+        if !idx_opt.is_none() {
+            self.error("Already a variable with this name in scope");
+            return;
+        }
+
+        self.consume(TokenType::LeftParen, "Expect '(' after function name.");
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.");
+        self.consume(TokenType::LeftBrace, "Expect '{' before body.");
+
+        let fun_value = self.compile_fun_body(fun_name_tok.get_lexeme());
+
+        let value_idx = chunk.add_value(fun_value);
+        self.emit_constant(chunk, value_idx);
+    
+        self.define_variable(fun_name_tok, chunk);
+    }
+
+    fn compile_fun_body(&mut self, name: &str) -> Value {
+
+        self.begin_env();
+
+        let mut chunk = Chunk::new();
+        self.begin_scope();
+
+        self.block(&mut chunk);
+
+        self.end_scope(&mut chunk);
+        self.end_env();
+
+        let fun_data = FuncData::new(name, 0, chunk);
+        let fun_data = HeapManager::malloc(&self.heap_manager, fun_data);
+        
+        Value::Func(fun_data)
+    }
+
     fn var_declaration(&mut self, chunk: &mut Chunk) {
 
         self.consume(TokenType::Identifier, "Expect variable name.");
         
         let vartoken = self.previous.as_ref().unwrap().clone();
 
-        let idx_opt = self.resolve_local_idx_w_min_depth(&vartoken, self.curr_depth);
+        let idx_opt = self.resolve_local_idx_w_min_depth(&vartoken, self.current_depth());
         if !idx_opt.is_none() {
             self.error("Already a variable with this name in scope");
             return;
@@ -247,20 +331,26 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::Semicolon, 
             "Expect ';' after variable declaration.");
 
-        if self.curr_depth > 0 {
+        self.define_variable(vartoken, chunk);        
+    }
+
+    fn define_variable(&mut self, name_tok: Token, chunk: &mut Chunk) {
+
+        if self.current_depth() > 0 {
             let local = Local{
-                name: vartoken,
-                depth: self.curr_depth,
+                name: name_tok,
+                depth: self.current_depth(),
             };
-            self.locals.push(local);
+            let locals = self.locals_mut();
+            locals.push(local);
 
         } else {
-            let varname = self.create_varname(vartoken);
+            let varname = self.create_varname(name_tok);
             let global_idx = chunk.add_value(varname) as u32;
             self.emit_instruction(chunk, Instruction::DefineGlobal { global_idx })
         }
-        
-    }
+
+    } 
 
     fn create_varname(&self, token: Token) -> Value {
         let varname = token.get_lexeme();
@@ -375,8 +465,10 @@ impl <'a> Compiler<'a> {
             loop_start
         };
 
-        self.loops.push(Loop { 
-            depth: self.curr_depth, 
+        let depth = self.current_depth(); 
+        let loops = self.loops_mut();
+        loops.push(Loop { 
+            depth, 
             continue_target, 
         });
     
@@ -404,7 +496,7 @@ impl <'a> Compiler<'a> {
             self.emit_instruction(chunk, Instruction::Pop);
         }
 
-        self.loops.pop();
+        self.loops_mut().pop();
         
         self.end_scope(chunk);
         
@@ -450,8 +542,10 @@ impl <'a> Compiler<'a> {
 
         let loop_start = chunk.size();
 
-        self.loops.push(Loop { 
-            depth: self.curr_depth, 
+        let depth = self.current_depth();
+        let loops = self.loops_mut();
+        loops.push(Loop { 
+            depth, 
             continue_target: loop_start, 
         });
 
@@ -476,7 +570,7 @@ impl <'a> Compiler<'a> {
         jump_delta = (loop_end - loop_start) as u16;
         chunk.update_jump_offset(loop_end, jump_delta);
 
-        self.loops.pop();
+        self.loops_mut().pop();
 
     }
 
@@ -492,11 +586,13 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::LeftBrace, "Expect '{'.");
 
         // Set expression value as local variable:
-        self.locals.push(Local { 
+        let depth = self.current_depth();
+        let locals = self.locals_mut();
+        locals.push(Local { 
             name: switch_token, 
-            depth: self.curr_depth, 
+            depth, 
         });
-        let local_idx = (self.locals.len() - 1) as u32;
+        let local_idx = (locals.len() - 1) as u32;
         self.emit_instruction(chunk, Instruction::SetLocal { local_idx });
 
         let mut exit_jumps: Vec<usize> = vec![];
@@ -595,28 +691,36 @@ impl <'a> Compiler<'a> {
     }
 
     fn begin_scope(&mut self) {
-        self.curr_depth += 1;
+        self.set_current_depth(self.current_depth() + 1);
     }
 
     fn end_scope(&mut self, chunk: &mut Chunk) {
-        self.curr_depth -= 1;
+        self.set_current_depth(self.current_depth() - 1);
         self.remove_locals(chunk);
     }
 
     fn remove_locals(&mut self, chunk: &mut Chunk) {
-        while let Some(local) = self.locals.last() {
-            if local.depth > self.curr_depth {
-                self.emit_instruction(chunk, Instruction::Pop);
-                self.locals.pop();
+        let curr_depth = self.current_depth();
+        let locals = self.locals_mut();
+        let mut cnt_pops = 0;
+        while let Some(local) = locals.last() {
+            if local.depth > curr_depth {
+                cnt_pops += 1;
+                locals.pop();
             } else {
                 break;
             }
         } 
 
+        for _ in 0..cnt_pops {
+            self.emit_instruction(chunk, Instruction::Pop);
+        }
+
     }
 
     fn emit_pops_on_scope_exit(&self, chunk: &mut Chunk, target_depth: usize) {
-        for local in self.locals.iter().rev() {
+        let locals = self.locals();
+        for local in locals.iter().rev() {
             if local.depth > target_depth {
                 self.emit_instruction(chunk, Instruction::Pop);
             } else {
@@ -627,7 +731,8 @@ impl <'a> Compiler<'a> {
 
     fn resolve_local_idx(&self, name: &Token) -> Option<usize> {
         let name = name.get_lexeme();
-        for (idx, local) in self.locals.iter().enumerate().rev() {
+        let locals = self.locals();
+        for (idx, local) in locals.iter().enumerate().rev() {
             if local.name.get_lexeme() == name {
                 return Some(idx);
             }
@@ -637,7 +742,8 @@ impl <'a> Compiler<'a> {
 
     fn resolve_local_idx_w_min_depth(&self, name: &Token, min_depth: usize) -> Option<usize> {
         let name = name.get_lexeme();
-        for (idx, local) in self.locals.iter().enumerate().rev() {
+        let locals = self.locals();
+        for (idx, local) in locals.iter().enumerate().rev() {
             if local.depth < min_depth {
                 break;
             }
@@ -666,7 +772,8 @@ impl <'a> Compiler<'a> {
 
     fn continue_statement(&mut self, chunk: &mut Chunk) {
 
-        let last_loop = self.loops.last();
+        let loops = self.loops();
+        let last_loop = loops.last();
 
         if last_loop.is_some() {
             let loop_data = last_loop.unwrap().clone();

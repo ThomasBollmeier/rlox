@@ -47,13 +47,14 @@ impl Clone for Value {
 #[cfg(test)]
 mod tests {
     use super::Value::*;
-    use crate::backend::{objects::FuncData, heap::HeapManager};
+    use crate::backend::{objects::FuncData, heap::HeapManager, chunk::Chunk};
 
     #[test]
     fn show() {
 
         let hm = HeapManager::new_rc_refcell();
-        let fdata = HeapManager::malloc(&hm, FuncData::new("say_hello", 1));
+        let fdata = FuncData::new("say_hello", 1, Chunk::new());
+        let fdata = HeapManager::malloc(&hm, fdata);
         let f = Func(fdata);
         println!("{}", f);
 

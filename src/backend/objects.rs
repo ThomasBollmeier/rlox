@@ -39,16 +39,16 @@ pub struct FuncData {
 
 impl FuncData {
 
-    pub fn new(name: &str, arity: u8) -> FuncData {
+    pub fn new(name: &str, arity: u8, chunk: Chunk) -> FuncData {
         FuncData { 
             arity, 
-            chunk: Rc::new(RefCell::new(Chunk::new())), 
+            chunk: Rc::new(RefCell::new(chunk)), 
             name: name.to_string(), 
         }
     }
 
     pub fn new_top() -> FuncData {
-        Self::new("", 0)
+        Self::new("", 0, Chunk::new())
     }
 
     pub fn borrow_chunk(&self) -> Ref<Chunk> {

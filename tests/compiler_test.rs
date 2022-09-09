@@ -207,6 +207,22 @@ fn continue_not_allowed_outside_loop() {
     assert!(res.is_none()); 
 }
 
+#[test]
+fn fun_declaration() {
+
+    let source = "
+        var some_global_data = 42;
+
+        fun say_hello() {
+            var message = \"Hallo!\";
+            print message;
+        }
+    ";
+
+    compile_code(source, "fun_declaration");
+}
+
+
 fn compile_expression(source: &str) {
     // Add semicolon to compile as expression statement
     let expr_statement = source.to_string() + ";";
