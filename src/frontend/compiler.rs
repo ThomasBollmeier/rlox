@@ -281,10 +281,23 @@ impl <'a> Compiler<'a> {
         }
 
         self.consume(TokenType::LeftParen, "Expect '(' after function name.");
+
+        // Parameters
+        let mut parameters: Vec<Token> = vec![];
+        if !self.check(TokenType::RightParen) {
+            loop {
+                self.consume(TokenType::Identifier, "Expect identifier as parameter.");
+                parameters.push(self.previous.as_ref().unwrap().clone());
+                if !self.is_match(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        
         self.consume(TokenType::RightParen, "Expect ')' after parameters.");
         self.consume(TokenType::LeftBrace, "Expect '{' before body.");
 
-        let fun_value = self.compile_fun_body(fun_name_tok.get_lexeme());
+        let fun_value = self.compile_fun_body(fun_name_tok.get_lexeme(), parameters);
 
         let value_idx = chunk.add_value(fun_value);
         self.emit_constant(chunk, value_idx);
@@ -292,19 +305,23 @@ impl <'a> Compiler<'a> {
         self.define_variable(fun_name_tok, chunk);
     }
 
-    fn compile_fun_body(&mut self, name: &str) -> Value {
+    fn compile_fun_body(&mut self, name: &str, params: Vec<Token>) -> Value {
 
         self.begin_env();
 
         let mut chunk = Chunk::new();
         self.begin_scope();
 
+        for param in params.iter() {
+            self.define_variable(param.clone(), &mut chunk);
+        }
+
         self.block(&mut chunk);
 
         self.end_scope(&mut chunk);
         self.end_env();
 
-        let fun_data = FuncData::new(name, 0, chunk);
+        let fun_data = FuncData::new(name, params.len() as u8, chunk);
         let fun_data = HeapManager::malloc(&self.heap_manager, fun_data);
         
         Value::Func(fun_data)

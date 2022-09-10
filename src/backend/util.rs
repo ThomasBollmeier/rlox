@@ -39,9 +39,9 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
         Instruction::SetGlobal { global_idx } => 
             disassemble_set_global(chunk, global_idx),
         Instruction::GetLocal { local_idx } => 
-            disassemble_get_local(chunk, local_idx),
+            disassemble_get_local(local_idx),
         Instruction::SetLocal { local_idx } => 
-            disassemble_set_local(chunk, local_idx),
+            disassemble_set_local(local_idx),
         Instruction::Jump { jump_distance } => 
             disassemble_jump(jump_distance),
         Instruction::JumpIfFalse { jump_distance } => 
@@ -107,14 +107,12 @@ fn disassemble_set_global(chunk: &Chunk, global_idx: &u32) -> String {
     format!("{:<16} {:04} ({})", "OP_SET_GLOBAL", global_idx, value)
 }
 
-fn disassemble_get_local(chunk: &Chunk, local_idx: &u32) -> String {
-    let value = chunk.read_value(*local_idx as usize).unwrap();
-    format!("{:<16} {:04} ({})", "OP_GET_LOCAL", local_idx, value)
+fn disassemble_get_local(local_idx: &u32) -> String {
+    format!("{:<16} {:04}", "OP_GET_LOCAL", local_idx)
 }
 
-fn disassemble_set_local(chunk: &Chunk, local_idx: &u32) -> String {
-    let value = chunk.read_value(*local_idx as usize).unwrap();
-    format!("{:<16} {:04} ({})", "OP_SET_LOCAL", local_idx, value)
+fn disassemble_set_local(local_idx: &u32) -> String {
+    format!("{:<16} {:04}", "OP_SET_LOCAL", local_idx)
 }
 
 fn disassemble_jump(jump_distance: &u16) -> String {

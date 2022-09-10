@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use rlox::{frontend::compiler::Compiler, backend::util::disassemble};
+use rlox::{frontend::compiler::Compiler, backend::{util::disassemble, objects::FuncData, value::Value}};
 
 #[test]
 fn compile_arithmetic_expr() {
@@ -211,15 +211,38 @@ fn continue_not_allowed_outside_loop() {
 fn fun_declaration() {
 
     let source = "
+        var x = 1;
         var some_global_data = 42;
 
-        fun say_hello() {
-            var message = \"Hallo!\";
-            print message;
+        fun say_hello(name) {
+            var message = \"Hallo, \";
+            print message + name + \"!\";
+            print some_global_data;
         }
     ";
 
-    compile_code(source, "fun_declaration");
+    let top = compile_code(source, "fun_declaration");
+
+    let top_chunk = top.borrow_chunk();
+    let say_hello = top_chunk.read_value(4).unwrap();
+
+    println!("");
+
+    match say_hello {
+        Value::Func(fdata) => {
+            let hm = fdata.get_manager();
+            let hm = hm.borrow();
+            let fdata = hm.get_content(fdata);
+            let fun_chunk = fdata.borrow_chunk();
+
+            disassemble(&fun_chunk, "fun say_hello");
+        }
+        _ => assert!(false)
+    }
+
+
+
+
 }
 
 
@@ -229,7 +252,7 @@ fn compile_expression(source: &str) {
     compile_code(&expr_statement, "expression");
 }
 
-fn compile_code(source: &str, name: &str) {
+fn compile_code(source: &str, name: &str) -> FuncData {
     let mut compiler = Compiler::new(source);
  
     let func_opt = compiler.compile();
@@ -237,8 +260,11 @@ fn compile_code(source: &str, name: &str) {
     assert!(func_opt.is_some()); 
 
     let mut func = func_opt.unwrap();
-    let chunk = func.borrow_chunk_mut();
-    let chunk = chunk.deref();
+    {
+        let chunk = func.borrow_chunk_mut();
+        let chunk = chunk.deref();
+        disassemble(&chunk,name);
+    }
 
-    disassemble(&chunk,name);
+    func
 }

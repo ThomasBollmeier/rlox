@@ -28,9 +28,9 @@ impl <T: HeapObject + PartialEq + 'static> PartialEq for HeapRef<T> {
     
     fn eq(&self, other: &Self) -> bool {
         let hm = self.heap_manager.borrow();
-        let data = hm.deref(self);
+        let data = hm.get_content(self);
         let other_hm = other.heap_manager.borrow();
-        let other_data = other_hm.deref(other);
+        let other_data = other_hm.get_content(other);
         data == other_data
     }
 }
@@ -38,7 +38,7 @@ impl <T: HeapObject + PartialEq + 'static> PartialEq for HeapRef<T> {
 impl <T: HeapObject + Display + 'static> Display for HeapRef<T> {
     
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.heap_manager.borrow().deref(self))
+        write!(f, "{}", self.heap_manager.borrow().get_content(self))
     }
 }
 
@@ -102,7 +102,7 @@ impl HeapManager {
         idxs_to_free.iter().for_each(|i| self.free_at_index(*i));
     }
 
-    pub fn deref<T: HeapObject + 'static>(&self, obj_ref: &HeapRef<T>) -> &T {
+    pub fn get_content<T: HeapObject + 'static>(&self, obj_ref: &HeapRef<T>) -> &T {
         self.objects.get(obj_ref.index)
             .unwrap()
             .as_ref()
@@ -114,7 +114,7 @@ impl HeapManager {
             .unwrap()
     }
 
-    pub fn deref_mut<T: HeapObject + 'static>(&mut self, obj_ref: &HeapRef<T>) -> &mut T {
+    pub fn get_content_mut<T: HeapObject + 'static>(&mut self, obj_ref: &HeapRef<T>) -> &mut T {
         self.objects[obj_ref.index]
             .as_mut()
             .unwrap()
@@ -139,7 +139,7 @@ mod tests {
         let obj_ref = HeapManager::malloc(&hm, "My String".to_string());
 
         assert_eq!(obj_ref.index, 0);
-        println!("{}", obj_ref.get_manager().borrow_mut().deref_mut(&obj_ref));
+        println!("{}", obj_ref.get_manager().borrow_mut().get_content_mut(&obj_ref));
 
         hm.borrow_mut().free(obj_ref);
     }

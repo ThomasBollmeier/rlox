@@ -25,7 +25,7 @@ impl HeapRef<String> {
     pub fn get_string(&self) -> String {
         let hm = self.get_manager();
         let hm_ref = hm.borrow();
-        hm_ref.deref(self).to_owned()
+        hm_ref.get_content(self).to_owned()
     }
 
 }

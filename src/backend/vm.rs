@@ -229,7 +229,7 @@ impl VM {
 
         match value {
             Value::Str(s) => {
-                let varname = s.get_manager().borrow().deref(s).clone();
+                let varname = s.get_manager().borrow().get_content(s).clone();
                 let value = self.peek(0).unwrap();
                 self.globals.borrow_mut().insert(varname, value);
                 self.pop();
@@ -251,7 +251,7 @@ impl VM {
 
         match value {
             Value::Str(s) => {
-                let varname = s.get_manager().borrow().deref(s).clone();
+                let varname = s.get_manager().borrow().get_content(s).clone();
                 let globals = self.globals.borrow();
                 let varvalue = globals.get(&varname);
                 if varvalue.is_some() {
@@ -279,7 +279,7 @@ impl VM {
 
         match value {
             Value::Str(s) => {
-                let varname = s.get_manager().borrow().deref(s).clone();
+                let varname = s.get_manager().borrow().get_content(s).clone();
                 let mut globals = self.globals.borrow_mut();
                 if globals.contains_key(&varname) {
                     let new_value = self.peek(0).unwrap();
