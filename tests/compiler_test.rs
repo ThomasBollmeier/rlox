@@ -240,9 +240,6 @@ fn fun_declaration() {
         _ => assert!(false)
     }
 
-
-
-
 }
 
 

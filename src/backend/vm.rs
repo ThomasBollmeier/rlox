@@ -1,5 +1,4 @@
 use std::{cell::{RefCell, RefMut, Ref}, collections::HashMap};
-
 use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef, objects::FuncData};
 
 #[derive(Debug, PartialEq)]
@@ -27,6 +26,10 @@ impl CallFrame {
             ip: 0, 
             stack_base: 0 
         }
+    }
+
+    pub fn new(func_data: FuncData, ip: usize, stack_base: usize) -> CallFrame {
+        CallFrame { func_data, ip, stack_base }
     }
 }
 
@@ -157,6 +160,8 @@ impl VM {
                     self.interpret_jump_if_false(offset, jump_distance), 
                 Instruction::Loop { jump_distance } =>
                     self.interpret_loop(offset, jump_distance),
+                Instruction::Call { num_args } =>
+                    self.interpret_call(num_args, self.get_line(offset)),
             };
 
             if let Some(result) = result {
@@ -208,7 +213,10 @@ impl VM {
         eprintln!("[line {}] in script", line);
     }
 
-    fn interpret_return(&self) -> Option<InterpretResult> {
+    fn interpret_return(&mut self) -> Option<InterpretResult> {
+        if self.frames.len() > 1 {
+            self.frames.pop();
+        }
         None
     }
 
@@ -329,6 +337,29 @@ impl VM {
 
     fn interpret_loop(&mut self, offset: usize, jump_distance: u16) -> Option<InterpretResult> {
         self.set_current_ip(offset - jump_distance as usize);
+        None
+    }
+
+    fn interpret_call(&mut self, num_args: u8, line: i32) -> Option<InterpretResult> {
+        let stack = self.stack.borrow();
+        let fun_idx = stack.len() - 1 - (num_args as usize);
+        let value = &stack[fun_idx];
+
+        match value {
+            Value::Func(fun_data) => {
+                let hm = fun_data.get_manager();
+                let hm = hm.borrow();
+                let fun_data = hm.get_content(fun_data).clone();
+
+                let new_frame = CallFrame::new(fun_data, 0, fun_idx);
+                self.frames.push(new_frame);
+            },
+            _ => {
+                self.print_runtime_error(line, &format!("{} is not a function.", value));
+                return Some(InterpretResult::RuntimeError);
+            }
+        }
+
         None
     }
 

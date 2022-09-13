@@ -129,6 +129,10 @@ impl Chunk {
                 self.write(OpCode::Loop as u8, line);
                 self.write_u16(offset, line);
             },
+            Instruction::Call { num_args } => {
+                self.write(OpCode::Call as u8, line);
+                self.write(num_args, line);
+            }
         }
 
         let next_offset = self.code.len();
@@ -269,6 +273,17 @@ impl Chunk {
                 let offset = self.read_u16(next_offset);
                 next_offset += 2;
                 Some((Instruction::Loop{jump_distance: offset}, next_offset))
+            },
+            OpCode::Call => {
+                let num_args_opt = self.read(next_offset);
+                next_offset += 1;
+                match num_args_opt {
+                    Some(num_args) => {
+                        let num_args = num_args.clone();
+                        Some((Instruction::Call { num_args }, next_offset))
+                    },
+                    None => None,
+                }
             },
         }
     }

@@ -64,8 +64,8 @@ impl <'a> Compiler<'a> {
         self.parse_rules.register(
             TokenType::LeftParen,
             grouping(),
-            None,
-            Precedence::None
+            call(),
+            Precedence::Call
         );
         self.parse_rules.register(
             TokenType::Minus,
@@ -293,11 +293,16 @@ impl <'a> Compiler<'a> {
                 }
             }
         }
+
+        if parameters.len() > u8::MAX as usize{
+            self.error(&format!("Number of parameters must not exceed {}", u8::MAX));
+            return;
+        }
         
         self.consume(TokenType::RightParen, "Expect ')' after parameters.");
         self.consume(TokenType::LeftBrace, "Expect '{' before body.");
 
-        let fun_value = self.compile_fun_body(fun_name_tok.get_lexeme(), parameters);
+        let fun_value = self.compile_fun_body(&fun_name_tok, parameters);
 
         let value_idx = chunk.add_value(fun_value);
         self.emit_constant(chunk, value_idx);
@@ -305,12 +310,14 @@ impl <'a> Compiler<'a> {
         self.define_variable(fun_name_tok, chunk);
     }
 
-    fn compile_fun_body(&mut self, name: &str, params: Vec<Token>) -> Value {
+    fn compile_fun_body(&mut self, name: &Token, params: Vec<Token>) -> Value {
 
         self.begin_env();
 
         let mut chunk = Chunk::new();
         self.begin_scope();
+
+        self.define_variable(name.clone(), &mut chunk);
 
         for param in params.iter() {
             self.define_variable(param.clone(), &mut chunk);
@@ -319,9 +326,13 @@ impl <'a> Compiler<'a> {
         self.block(&mut chunk);
 
         self.end_scope(&mut chunk);
+
+        self.emit_instruction(&mut chunk, Instruction::Nil);
+        self.emit_instruction(&mut chunk, Instruction::Return);
+
         self.end_env();
 
-        let fun_data = FuncData::new(name, params.len() as u8, chunk);
+        let fun_data = FuncData::new(name.get_lexeme(), params.len() as u8, chunk);
         let fun_data = HeapManager::malloc(&self.heap_manager, fun_data);
         
         Value::Func(fun_data)
@@ -936,6 +947,34 @@ impl <'a> Compiler<'a> {
         }
     } 
 
+    fn call(&mut self, chunk: &mut Chunk, _can_assign: bool) {
+        let num_args = self.arguments(chunk);
+        self.emit_instruction(chunk, Instruction::Call{ num_args });
+    }
+
+    fn arguments(&mut self, chunk: &mut Chunk) -> u8 {
+        let mut num_args = 0;
+        if !self.is_match(TokenType::RightParen) {
+            loop {
+                if num_args == u8::MAX {
+                    self.error(&format!("Can't have more than {num_args} arguments."));
+                    return 0;
+                }
+
+                self.expression(chunk);
+                num_args += 1;
+
+                if !self.is_match(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen, "Expect ')' after arguments.");
+
+        num_args
+    }
+
     fn parse_precedence(&mut self, prec: Precedence, chunk: &mut Chunk) {
         self.advance();
         let token_type = &self.previous.as_ref().unwrap().get_token_type();
@@ -1148,4 +1187,8 @@ fn and() -> Option<ParseFn> {
 
 fn or() -> Option<ParseFn> {
     Some(|comp, chunk, can_assign| comp.or(chunk, can_assign))
+}
+
+fn call() -> Option<ParseFn> {
+    Some(|comp, chunk, can_assign|{ comp.call(chunk, can_assign)})
 }

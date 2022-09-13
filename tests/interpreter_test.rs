@@ -239,3 +239,18 @@ fn interpret_continue_in_while() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_fun_call() {
+    
+    let source = "
+        fun print_sum(a, b) {
+            print a + b;
+        }
+
+        print_sum(41, 1);
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

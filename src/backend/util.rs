@@ -48,6 +48,8 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             disassemble_jump_if_false(jump_distance),
         Instruction::Loop { jump_distance } =>
             disassemble_loop(jump_distance),
+        Instruction::Call { num_args } =>
+            disassemble_call(num_args),
         Instruction::Nil =>
             "OP_NIL".to_string(),
         Instruction::True =>
@@ -125,6 +127,10 @@ fn disassemble_jump_if_false(jump_distance: &u16) -> String {
 
 fn disassemble_loop(jump_distance: &u16) -> String {
     format!("{:<16} {:04}", "OP_LOOP", jump_distance)
+}
+
+fn disassemble_call(num_args: &u8) -> String {
+    format!("{:<16} {:04}", "OP_CONSTANT", num_args)
 }
 
 #[cfg(test)]
