@@ -436,9 +436,28 @@ impl <'a> Compiler<'a> {
             self.end_scope(chunk);
         } else if self.is_match(TokenType::Continue) {
             self.continue_statement(chunk);
+        } else if self.is_match(TokenType::Return) {
+            self.return_statement(chunk);
         } else {
             self.expr_statement(chunk);
         }
+    }
+
+    fn return_statement(&mut self, chunk: &mut Chunk) {
+
+        if self.envs.len() == 1 {
+            self.error("Can't return from top level code.");
+            return;
+        }
+
+        if self.is_match(TokenType::Semicolon) {
+            self.emit_instruction(chunk, Instruction::Nil);
+            
+        } else {
+            self.expression(chunk);
+            self.consume(TokenType::Semicolon, "Expect ';' after return value.");
+        }
+        self.emit_return(chunk);
     }
 
     fn for_statement(&mut self, chunk: &mut Chunk) {
@@ -954,7 +973,7 @@ impl <'a> Compiler<'a> {
 
     fn arguments(&mut self, chunk: &mut Chunk) -> u8 {
         let mut num_args = 0;
-        if !self.is_match(TokenType::RightParen) {
+        if !self.check(TokenType::RightParen) {
             loop {
                 if num_args == u8::MAX {
                     self.error(&format!("Can't have more than {num_args} arguments."));

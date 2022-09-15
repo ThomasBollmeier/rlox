@@ -254,3 +254,52 @@ fn interpret_fun_call() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::Ok);
 }
+
+#[test]
+fn interpret_fun_call_with_return() {
+    
+    let source = "
+        fun sum(a, b) {
+            return a + b;
+        }
+
+        print sum(41, 1);
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}
+
+#[test]
+fn interpret_fun_call_with_wrong_num_args() {
+    
+    let source = "
+        fun a() {
+            b();
+        }
+
+        fun b() {
+            c(\"too\", \"many\");
+        }
+
+        fun c() {
+            print \"Hallo Welt!\";
+        }
+
+        a();
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::RuntimeError);
+}
+
+#[test]
+fn interpret_top_level_return() {
+    
+    let source = "
+        return 42; 
+    ";
+    
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::CompileError);
+}

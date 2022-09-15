@@ -12,6 +12,7 @@ pub struct CallFrame {
     func_data: FuncData,
     ip: usize, // <-- instruction pointer
     stack_base: usize, // <-- base offset in stack
+    caller_line: i32, 
 }
 
 impl CallFrame {
@@ -24,12 +25,13 @@ impl CallFrame {
         CallFrame { 
             func_data, 
             ip: 0, 
-            stack_base: 0 
+            stack_base: 0, 
+            caller_line: 0,
         }
     }
 
-    pub fn new(func_data: FuncData, ip: usize, stack_base: usize) -> CallFrame {
-        CallFrame { func_data, ip, stack_base }
+    pub fn new(func_data: FuncData, ip: usize, stack_base: usize, caller_line: i32) -> CallFrame {
+        CallFrame { func_data, ip, stack_base, caller_line }
     }
 }
 
@@ -105,7 +107,8 @@ impl VM {
 
             let (instr, next_offset) = instr_offs_opt.unwrap();
 
-            if cfg!(trace_run) {
+            //if cfg!(trace_run) {
+            {
                 let chunk = self.current_chunk();
                 self.show_stack();
                 println!("{}", disassemble_instruction(&chunk, &instr));
@@ -210,13 +213,45 @@ impl VM {
 
     fn print_runtime_error(&self, line: i32, message: &str) {
         eprintln!("{}", message);
-        eprintln!("[line {}] in script", line);
+        self.print_callstack(line);
+    }
+
+    fn print_callstack(&self, line: i32) {
+        let mut call_line = line;
+        for frame in self.frames.iter().rev() {
+            let mut fun_name = frame.func_data.name.clone();
+            if fun_name.is_empty() {
+                fun_name = "script".to_string();
+            } else {
+                fun_name = format!("{fun_name}()");
+            };
+            eprintln!("[line {}] in {}", call_line, fun_name);
+            call_line = frame.caller_line;
+        }
     }
 
     fn interpret_return(&mut self) -> Option<InterpretResult> {
-        if self.frames.len() > 1 {
-            self.frames.pop();
+        if self.frames.len() == 1 {
+            return if self.stack.borrow().is_empty() {
+                Some(InterpretResult::Ok)
+            } else {
+                Some(InterpretResult::RuntimeError)
+            }    
         }
+
+        if self.frames.len() > 1 {
+            let frame = self.frames.pop().unwrap();
+            let result = self.pop(); 
+            let stack_size = self.stack.borrow().len();
+            let num_pops = stack_size - frame.stack_base;
+
+            for _ in 0..num_pops {
+                self.pop();
+            }
+
+            self.push(&result);
+        }
+
         None
     }
 
@@ -351,7 +386,15 @@ impl VM {
                 let hm = hm.borrow();
                 let fun_data = hm.get_content(fun_data).clone();
 
-                let new_frame = CallFrame::new(fun_data, 0, fun_idx);
+                if fun_data.arity != num_args {
+                    let message = format!("Expected {} arguments but got {}",
+                        fun_data.arity, num_args);
+                    self.print_runtime_error(line, &message);
+                    return Some(InterpretResult::RuntimeError);    
+                }
+
+                let new_frame = CallFrame::new(
+                    fun_data, 0, fun_idx, line);
                 self.frames.push(new_frame);
             },
             _ => {

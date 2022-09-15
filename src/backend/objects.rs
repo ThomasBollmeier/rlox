@@ -32,9 +32,9 @@ impl HeapRef<String> {
 
 #[derive(Clone)]
 pub struct FuncData {
-    arity: u8,
+    pub arity: u8,
     chunk: Rc<RefCell<Chunk>>,
-    name: String,
+    pub name: String,
 }
 
 impl FuncData {
