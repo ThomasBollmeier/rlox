@@ -62,7 +62,6 @@ pub struct ParseRule {
     pub precedence: Precedence,
 }
 
-
 pub struct ParseRules {
     rules: HashMap<TokenType, ParseRule>,
 }

@@ -303,3 +303,19 @@ fn interpret_top_level_return() {
     let result = interpreter::interpret(source);
     assert_eq!(result, InterpretResult::CompileError);
 }
+
+#[test]
+fn interpret_native_fun() {
+
+    let source = "
+        var answer = sqrt(42 * 42);
+        print answer;
+
+        var fullname = concat(\"Herbert \", \"Mustermann\");
+        print fullname;
+
+    ";
+
+    let result = interpreter::interpret(source);
+    assert_eq!(result, InterpretResult::Ok);
+}

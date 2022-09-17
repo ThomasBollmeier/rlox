@@ -16,10 +16,16 @@ pub struct HeapRef<T: HeapObject> {
     _marker: PhantomData<T>,
 }
 
-impl <T: HeapObject> HeapRef<T> {
+impl <T: HeapObject + Clone + 'static> HeapRef<T> {
 
     pub fn get_manager(&self) -> Rc<RefCell<HeapManager>> {
         self.heap_manager.clone()
+    }
+
+    pub fn get_content(&self) -> T {
+        let hm = self.heap_manager.borrow();
+        let content = hm.get_content(self);
+        content.clone()
     }
  
 }

@@ -1,6 +1,6 @@
 use std::fmt::{Display, Debug};
 
-use super::{heap::HeapRef, objects::FuncData};
+use super::{heap::HeapRef, objects::{FunData, NativeFunData}};
 
 #[derive(PartialEq)]
 pub enum Value {
@@ -8,7 +8,8 @@ pub enum Value {
     Bool(bool),
     Nil,
     Str(HeapRef<String>),
-    Func(HeapRef<FuncData>),
+    Fun(HeapRef<FunData>),
+    NativeFun(HeapRef<NativeFunData>),
 }
 
 impl Display for Value {
@@ -19,7 +20,8 @@ impl Display for Value {
             Self::Bool(value) => write!(f, "{}", value),
             Self::Nil => write!(f, "nil"),
             Self::Str(value) => write!(f, "{}", value),
-            Self::Func(value) => write!(f, "{}", value),
+            Self::Fun(value) => write!(f, "{}", value),
+            Self::NativeFun(value) => write!(f, "{}", value),
         }
     }
 }
@@ -39,7 +41,8 @@ impl Clone for Value {
             Self::Bool(val) => Self::Bool(val.clone()),
             Self::Nil => Self::Nil,
             Self::Str(val) => Self::Str(val.clone()),
-            Self::Func(val) => Self::Func(val.clone()),
+            Self::Fun(val) => Self::Fun(val.clone()),
+            Self::NativeFun(val) => Self::NativeFun(val.clone()),
         }
     }
 }
@@ -47,15 +50,15 @@ impl Clone for Value {
 #[cfg(test)]
 mod tests {
     use super::Value::*;
-    use crate::backend::{objects::FuncData, heap::HeapManager, chunk::Chunk};
+    use crate::backend::{objects::FunData, heap::HeapManager, chunk::Chunk};
 
     #[test]
     fn show() {
 
         let hm = HeapManager::new_rc_refcell();
-        let fdata = FuncData::new("say_hello", 1, Chunk::new());
+        let fdata = FunData::new("say_hello", 1, Chunk::new());
         let fdata = HeapManager::malloc(&hm, fdata);
-        let f = Func(fdata);
+        let f = Fun(fdata);
         println!("{}", f);
 
     }

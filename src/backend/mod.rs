@@ -5,5 +5,6 @@ pub mod value;
 pub mod vm;
 pub mod heap;
 pub mod objects;
+pub mod native;
 
 pub use vm::InterpretResult;

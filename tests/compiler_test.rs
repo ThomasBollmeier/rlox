@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use rlox::{frontend::compiler::Compiler, backend::{util::disassemble, objects::FuncData, value::Value}};
+use rlox::{frontend::compiler::Compiler, backend::{util::disassemble, objects::FunData, value::Value}};
 
 #[test]
 fn compile_arithmetic_expr() {
@@ -229,7 +229,7 @@ fn fun_declaration() {
     println!("");
 
     match say_hello {
-        Value::Func(fdata) => {
+        Value::Fun(fdata) => {
             let hm = fdata.get_manager();
             let hm = hm.borrow();
             let fdata = hm.get_content(fdata);
@@ -249,7 +249,7 @@ fn compile_expression(source: &str) {
     compile_code(&expr_statement, "expression");
 }
 
-fn compile_code(source: &str, name: &str) -> FuncData {
+fn compile_code(source: &str, name: &str) -> FunData {
     let mut compiler = Compiler::new(source);
  
     let func_opt = compiler.compile();

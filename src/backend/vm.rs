@@ -1,5 +1,5 @@
 use std::{cell::{RefCell, RefMut, Ref}, collections::HashMap};
-use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef, objects::FuncData};
+use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef, objects::{FunData, NativeFunData}};
 
 #[derive(Debug, PartialEq)]
 pub enum InterpretResult {
@@ -9,7 +9,7 @@ pub enum InterpretResult {
 }
 
 pub struct CallFrame {
-    func_data: FuncData,
+    func_data: FunData,
     ip: usize, // <-- instruction pointer
     stack_base: usize, // <-- base offset in stack
     caller_line: i32, 
@@ -18,10 +18,10 @@ pub struct CallFrame {
 impl CallFrame {
 
     pub fn new_top() -> CallFrame {
-        Self::new_top_with_func_data(FuncData::new_top())
+        Self::new_top_with_func_data(FunData::new_top())
     }
 
-    pub fn new_top_with_func_data(func_data: FuncData) -> CallFrame {
+    pub fn new_top_with_func_data(func_data: FunData) -> CallFrame {
         CallFrame { 
             func_data, 
             ip: 0, 
@@ -30,7 +30,7 @@ impl CallFrame {
         }
     }
 
-    pub fn new(func_data: FuncData, ip: usize, stack_base: usize, caller_line: i32) -> CallFrame {
+    pub fn new(func_data: FunData, ip: usize, stack_base: usize, caller_line: i32) -> CallFrame {
         CallFrame { func_data, ip, stack_base, caller_line }
     }
 }
@@ -52,6 +52,11 @@ impl VM {
             stack: RefCell::new(Vec::new()),
             globals: RefCell::new(HashMap::new()),
         }
+    }
+
+    pub fn define_native_fun(&mut self, native: &HeapRef<NativeFunData>) {
+        let name = native.get_content().name;
+        self.globals.borrow_mut().insert(name, Value::NativeFun(native.clone()));
     }
 
     fn current_chunk(&self) -> Ref<Chunk> {
@@ -107,8 +112,7 @@ impl VM {
 
             let (instr, next_offset) = instr_offs_opt.unwrap();
 
-            //if cfg!(trace_run) {
-            {
+            if cfg!(trace_run) {
                 let chunk = self.current_chunk();
                 self.show_stack();
                 println!("{}", disassemble_instruction(&chunk, &instr));
@@ -272,7 +276,7 @@ impl VM {
 
         match value {
             Value::Str(s) => {
-                let varname = s.get_manager().borrow().get_content(s).clone();
+                let varname = s.get_content();
                 let value = self.peek(0).unwrap();
                 self.globals.borrow_mut().insert(varname, value);
                 self.pop();
@@ -294,7 +298,7 @@ impl VM {
 
         match value {
             Value::Str(s) => {
-                let varname = s.get_manager().borrow().get_content(s).clone();
+                let varname = s.get_content();
                 let globals = self.globals.borrow();
                 let varvalue = globals.get(&varname);
                 if varvalue.is_some() {
@@ -376,15 +380,16 @@ impl VM {
     }
 
     fn interpret_call(&mut self, num_args: u8, line: i32) -> Option<InterpretResult> {
-        let stack = self.stack.borrow();
-        let fun_idx = stack.len() - 1 - (num_args as usize);
-        let value = &stack[fun_idx];
+        
+        let (value, fun_idx) = {
+            let stack = self.stack.borrow();
+            let fun_idx = stack.len() - 1 - (num_args as usize);
+            (&stack[fun_idx].clone(), fun_idx)
+        };
 
         match value {
-            Value::Func(fun_data) => {
-                let hm = fun_data.get_manager();
-                let hm = hm.borrow();
-                let fun_data = hm.get_content(fun_data).clone();
+            Value::Fun(fun_data) => {
+                let fun_data = fun_data.get_content();
 
                 if fun_data.arity != num_args {
                     let message = format!("Expected {} arguments but got {}",
@@ -397,6 +402,22 @@ impl VM {
                     fun_data, 0, fun_idx, line);
                 self.frames.push(new_frame);
             },
+            Value::NativeFun(native_fun_data) => {
+                let native = native_fun_data.get_content();
+
+                if native.arity != num_args {
+                    let message = format!("Expected {} arguments but got {}",
+                        native.arity, num_args);
+                    self.print_runtime_error(line, &message);
+                    return Some(InterpretResult::RuntimeError);    
+                }
+
+                let args = self.pop_call_args(num_args);
+                self.pop(); // remove native function from stack 
+                let result = (native.fun)(args);
+                self.push(&result);
+
+            },
             _ => {
                 self.print_runtime_error(line, &format!("{} is not a function.", value));
                 return Some(InterpretResult::RuntimeError);
@@ -404,6 +425,19 @@ impl VM {
         }
 
         None
+    }
+
+    fn pop_call_args(&self, num_args: u8) -> Vec<Value> {
+        let mut ret = vec![];
+        
+        for _ in 0..num_args {
+            let arg = self.pop();
+            ret.push(arg);
+        }
+        
+        ret.reverse();
+        
+        ret
     }
 
     fn interpret_nil(&self) -> Option<InterpretResult> {

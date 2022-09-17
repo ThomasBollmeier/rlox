@@ -130,7 +130,7 @@ fn disassemble_loop(jump_distance: &u16) -> String {
 }
 
 fn disassemble_call(num_args: &u8) -> String {
-    format!("{:<16} {:04}", "OP_CONSTANT", num_args)
+    format!("{:<16} {:04}", "OP_CALL", num_args)
 }
 
 #[cfg(test)]

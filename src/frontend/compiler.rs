@@ -1,5 +1,5 @@
 use std::{collections::VecDeque, cell::{RefCell}, rc::Rc, ops::{DerefMut}};
-use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager, objects::FuncData};
+use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager, objects::FunData};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
 struct Local {
@@ -227,9 +227,9 @@ impl <'a> Compiler<'a> {
         self.envs.last_mut().unwrap().loops.as_mut()
     }
 
-    pub fn compile(&mut self) -> Option<FuncData> {
+    pub fn compile(&mut self) -> Option<FunData> {
         
-        let mut top = FuncData::new_top();
+        let mut top = FunData::new_top();
         
         {
             let mut chunk = top.borrow_chunk_mut();
@@ -332,10 +332,10 @@ impl <'a> Compiler<'a> {
 
         self.end_env();
 
-        let fun_data = FuncData::new(name.get_lexeme(), params.len() as u8, chunk);
+        let fun_data = FunData::new(name.get_lexeme(), params.len() as u8, chunk);
         let fun_data = HeapManager::malloc(&self.heap_manager, fun_data);
         
-        Value::Func(fun_data)
+        Value::Fun(fun_data)
     }
 
     fn var_declaration(&mut self, chunk: &mut Chunk) {

@@ -1,5 +1,5 @@
-use std::{io::{self, Read}, path::Path, fs::File};
-use crate::{backend::{InterpretResult, heap::HeapManager, vm::{VM, CallFrame}}, frontend::compiler::Compiler};
+use std::{io::{self, Read}, path::Path, fs::File, cell::RefCell, rc::Rc};
+use crate::{backend::{InterpretResult, heap::{HeapManager, HeapRef}, vm::{VM, CallFrame}, objects::{NativeFn, NativeFunData}, native}, frontend::compiler::Compiler};
 
 pub fn repl() {
 
@@ -55,7 +55,9 @@ pub fn interpret(source: &str) -> InterpretResult {
 
     let ret = if let Some(func_data) = compiler.compile() {
         let frame = CallFrame::new_top_with_func_data(func_data);
-        VM::new_with_frame(frame).run()
+        let mut vm = VM::new_with_frame(frame);
+        set_native_functions(&mut vm, &heap_manager);    
+        vm.run()
     } else {
         heap_manager.borrow_mut().free_all();
         InterpretResult::CompileError
@@ -65,3 +67,32 @@ pub fn interpret(source: &str) -> InterpretResult {
 
     ret
 }
+
+fn set_native_functions(vm: &mut VM, hm: &Rc<RefCell<HeapManager>>) {
+
+    vm.define_native_fun(&new_native(
+        hm, 
+        "sqrt", 
+        1,
+        native::sqrt 
+    ));
+
+    vm.define_native_fun(&new_native(
+        hm, 
+        "concat", 
+        2,
+        native::concat 
+    ));
+
+}
+
+fn new_native(
+    hm: &Rc<RefCell<HeapManager>>, 
+    name: &str, 
+    arity: u8, 
+    native_fn: NativeFn) -> HeapRef<NativeFunData> {
+
+    let native = NativeFunData::new(name, arity, native_fn);
+    HeapManager::malloc(hm, native)
+}
+
