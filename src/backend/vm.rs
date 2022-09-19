@@ -415,8 +415,13 @@ impl VM {
                 let args = self.pop_call_args(num_args);
                 self.pop(); // remove native function from stack 
                 let result = (native.fun)(args);
-                self.push(&result);
-
+                match result {
+                    Ok(value) => self.push(&value),
+                    Err(message) => {
+                        self.print_runtime_error(line, &message);
+                        return Some(InterpretResult::RuntimeError);
+                    }
+                }
             },
             _ => {
                 self.print_runtime_error(line, &format!("{} is not a function.", value));

@@ -88,7 +88,7 @@ impl PartialEq for FunData {
 }
 
 
-pub type NativeFn = fn(params: Vec<Value>) -> Value;
+pub type NativeFn = fn(params: Vec<Value>) -> Result<Value, String>;
 
 #[derive(Clone)]
 pub struct NativeFunData {
