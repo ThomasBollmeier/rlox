@@ -1,5 +1,5 @@
 use std::{cell::{RefCell, RefMut, Ref}, collections::HashMap};
-use super::{chunk::Chunk, instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef, objects::{FunData, NativeFunData}};
+use super::{instruction::Instruction, value::Value, util::disassemble_instruction, heap::HeapRef, objects::{FunData, NativeFunData, ClosureData}};
 
 #[derive(Debug, PartialEq)]
 pub enum InterpretResult {
@@ -9,7 +9,7 @@ pub enum InterpretResult {
 }
 
 pub struct CallFrame {
-    func_data: FunData,
+    closure: ClosureData,
     ip: usize, // <-- instruction pointer
     stack_base: usize, // <-- base offset in stack
     caller_line: i32, 
@@ -23,15 +23,15 @@ impl CallFrame {
 
     pub fn new_top_with_func_data(func_data: FunData) -> CallFrame {
         CallFrame { 
-            func_data, 
+            closure: ClosureData::new(func_data), 
             ip: 0, 
             stack_base: 0, 
             caller_line: 0,
         }
     }
 
-    pub fn new(func_data: FunData, ip: usize, stack_base: usize, caller_line: i32) -> CallFrame {
-        CallFrame { func_data, ip, stack_base, caller_line }
+    pub fn new(closure: ClosureData, ip: usize, stack_base: usize, caller_line: i32) -> CallFrame {
+        CallFrame { closure, ip, stack_base, caller_line }
     }
 }
 
@@ -59,15 +59,15 @@ impl VM {
         self.globals.borrow_mut().insert(name, Value::NativeFun(native.clone()));
     }
 
-    fn current_chunk(&self) -> Ref<Chunk> {
+    fn current_fun(&self) -> Ref<FunData> {
         let current_frame = self.frames.last().unwrap();
-        current_frame.func_data.borrow_chunk()
+        current_frame.closure.borrow_fun()
     } 
 
-    fn current_chunk_mut(&mut self) -> RefMut<Chunk> {
+    fn current_fun_mut(&mut self) -> RefMut<FunData> {
         let current_frame = self.frames.last_mut().unwrap();
-        current_frame.func_data.borrow_chunk_mut()
-    } 
+        current_frame.closure.borrow_fun_mut()
+    }
 
     fn current_ip(&self) -> usize {
         let current_frame = self.frames.last().unwrap();
@@ -87,12 +87,14 @@ impl VM {
     }
     
     pub fn add_instruction(&mut self, instr: Instruction, line: i32) {
-        let mut chunk = self.current_chunk_mut();
+        let mut fun = self.current_fun_mut();
+        let mut chunk = fun.borrow_chunk_mut();
         chunk.write_instruction(instr, line);
     }
 
     pub fn add_value(&mut self, value: Value) -> usize {
-        let mut chunk = self.current_chunk_mut();
+        let mut fun = self.current_fun_mut();
+        let mut chunk = fun.borrow_chunk_mut();
         chunk.add_value(value)
     }
 
@@ -101,7 +103,8 @@ impl VM {
         loop {
 
             let instr_offs_opt = {
-                let chunk = self.current_chunk();
+                let fun = self.current_fun();
+                let chunk = fun.borrow_chunk();
                 let ip = self.current_ip();
                 chunk.read_instruction(ip)
             };
@@ -113,7 +116,8 @@ impl VM {
             let (instr, next_offset) = instr_offs_opt.unwrap();
 
             if cfg!(trace_run) {
-                let chunk = self.current_chunk();
+                let fun = self.current_fun();
+                let chunk = fun.borrow_chunk();
                 self.show_stack();
                 println!("{}", disassemble_instruction(&chunk, &instr));
             }
@@ -169,6 +173,8 @@ impl VM {
                     self.interpret_loop(offset, jump_distance),
                 Instruction::Call { num_args } =>
                     self.interpret_call(num_args, self.get_line(offset)),
+                Instruction::Closure { value_idx } =>
+                    self.interpret_closure(value_idx),
             };
 
             if let Some(result) = result {
@@ -186,7 +192,9 @@ impl VM {
     }
 
     fn get_line(&self, offset: usize) -> i32 {
-        self.current_chunk().get_line(offset).unwrap_or(1)
+        let fun = self.current_fun();
+        let chunk = fun.borrow_chunk();
+        chunk.get_line(offset).unwrap_or(1)
     }
 
     fn show_stack(&self) {
@@ -223,7 +231,12 @@ impl VM {
     fn print_callstack(&self, line: i32) {
         let mut call_line = line;
         for frame in self.frames.iter().rev() {
-            let mut fun_name = frame.func_data.name.clone();
+            let fun_data = frame
+                .closure
+                .fun_data
+                .as_ref()
+                .borrow();
+            let mut fun_name = fun_data.name.clone();
             if fun_name.is_empty() {
                 fun_name = "script".to_string();
             } else {
@@ -260,7 +273,8 @@ impl VM {
     }
 
     fn interpret_constant(&self, value_idx: usize) -> Option<InterpretResult> {
-        let chunk = self.current_chunk();
+        let fun = self.current_fun();
+        let chunk = fun.borrow_chunk();
         let value = chunk
                 .read_value(value_idx)
                 .unwrap();
@@ -269,7 +283,8 @@ impl VM {
     }
 
     fn interpret_def_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
-        let chunk = self.current_chunk();
+        let fun = self.current_fun();
+        let chunk = fun.borrow_chunk();
         let value = chunk
                 .read_value(global_idx)
                 .unwrap();
@@ -291,7 +306,8 @@ impl VM {
     }
 
     fn interpret_get_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
-        let chunk = self.current_chunk();
+        let fun = self.current_fun();
+        let chunk = fun.borrow_chunk();
         let value = chunk
             .read_value(global_idx)
             .unwrap();
@@ -319,7 +335,8 @@ impl VM {
     }
 
     fn interpret_set_global(&self, global_idx: usize, line: i32) -> Option<InterpretResult> {
-        let chunk = self.current_chunk();
+        let fun = self.current_fun();
+        let chunk = fun.borrow_chunk();
         let value = chunk
             .read_value(global_idx)
             .unwrap();
@@ -381,15 +398,19 @@ impl VM {
 
     fn interpret_call(&mut self, num_args: u8, line: i32) -> Option<InterpretResult> {
         
-        let (value, fun_idx) = {
+        let (value, closure_idx) = {
             let stack = self.stack.borrow();
             let fun_idx = stack.len() - 1 - (num_args as usize);
             (&stack[fun_idx].clone(), fun_idx)
         };
 
         match value {
-            Value::Fun(fun_data) => {
-                let fun_data = fun_data.get_content();
+            Value::Closure(closure) => {
+                let closure = closure.get_content();
+                let fun_data = closure
+                    .fun_data
+                    .as_ref()
+                    .borrow();
 
                 if fun_data.arity != num_args {
                     let message = format!("Expected {} arguments but got {}",
@@ -399,7 +420,7 @@ impl VM {
                 }
 
                 let new_frame = CallFrame::new(
-                    fun_data, 0, fun_idx, line);
+                    closure.clone(), 0, closure_idx, line);
                 self.frames.push(new_frame);
             },
             Value::NativeFun(native_fun_data) => {
@@ -430,6 +451,10 @@ impl VM {
         }
 
         None
+    }
+
+    fn interpret_closure(&self, value_idx: u16) -> Option<InterpretResult> {
+        self.interpret_constant(value_idx as usize)
     }
 
     fn pop_call_args(&self, num_args: u8) -> Vec<Value> {

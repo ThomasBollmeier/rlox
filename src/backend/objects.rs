@@ -135,3 +135,51 @@ impl PartialEq for NativeFunData {
     }
 
 }
+
+#[derive(Clone)]
+pub struct ClosureData {
+    pub fun_data: Rc<RefCell<FunData>>,
+}
+
+impl ClosureData {
+    
+    pub fn new(fun_data: FunData) -> ClosureData {
+        ClosureData { fun_data: Rc::new(RefCell::new(fun_data)) }
+    }
+
+    pub fn borrow_fun(&self) -> Ref<FunData> {
+        self.fun_data.borrow()
+    }
+
+    pub fn borrow_fun_mut(&mut self) -> RefMut<FunData> {
+        self.fun_data.borrow_mut()
+    }
+}
+
+impl HeapObject for ClosureData {
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for ClosureData {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fun_data = &self.fun_data.as_ref().borrow();
+        write!(f, "<fn {}/{}>", fun_data.name, fun_data.arity)
+    }
+
+}
+
+impl PartialEq for ClosureData {
+
+    fn eq(&self, other: &Self) -> bool {
+        self.fun_data == other.fun_data
+    }
+
+}

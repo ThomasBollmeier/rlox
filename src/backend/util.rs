@@ -80,6 +80,9 @@ pub fn disassemble_instruction(chunk: &Chunk, instr: &Instruction) -> String {
             "OP_PRINT".to_string(),
         Instruction::Pop =>
             "OP_POP".to_string(),
+        Instruction::Closure { value_idx } =>
+            disassemble_closure(value_idx),
+        
     } 
 }
 
@@ -132,6 +135,11 @@ fn disassemble_loop(jump_distance: &u16) -> String {
 fn disassemble_call(num_args: &u8) -> String {
     format!("{:<16} {:04}", "OP_CALL", num_args)
 }
+
+fn disassemble_closure(value_idx: &u16) -> String {
+    format!("{:<16} {:04}", "OP_CLOSURE", value_idx)
+}
+
 
 #[cfg(test)]
 mod tests {

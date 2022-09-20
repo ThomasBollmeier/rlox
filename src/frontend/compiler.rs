@@ -1,5 +1,5 @@
 use std::{collections::VecDeque, cell::{RefCell}, rc::Rc, ops::{DerefMut}};
-use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager, objects::FunData};
+use crate::backend::{chunk::Chunk, instruction::Instruction, value::Value, heap::HeapManager, objects::{FunData, ClosureData}};
 use super::{scanner::Scanner, token::{Token, TokenType}, parse_rules::{Precedence, ParseRules, ParseFn}};
 
 struct Local {
@@ -302,10 +302,10 @@ impl <'a> Compiler<'a> {
         self.consume(TokenType::RightParen, "Expect ')' after parameters.");
         self.consume(TokenType::LeftBrace, "Expect '{' before body.");
 
-        let fun_value = self.compile_fun_body(&fun_name_tok, parameters);
+        let closure = self.compile_fun_body(&fun_name_tok, parameters);
 
-        let value_idx = chunk.add_value(fun_value);
-        self.emit_constant(chunk, value_idx);
+        let value_idx = chunk.add_value(closure) as u16;
+        self.emit_instruction(chunk, Instruction::Closure { value_idx });
     
         self.define_variable(fun_name_tok, chunk);
     }
@@ -333,9 +333,10 @@ impl <'a> Compiler<'a> {
         self.end_env();
 
         let fun_data = FunData::new(name.get_lexeme(), params.len() as u8, chunk);
-        let fun_data = HeapManager::malloc(&self.heap_manager, fun_data);
+        let closure_data = ClosureData::new(fun_data);
+        let closure_data = HeapManager::malloc(&self.heap_manager, closure_data);
         
-        Value::Fun(fun_data)
+        Value::Closure(closure_data)
     }
 
     fn var_declaration(&mut self, chunk: &mut Chunk) {

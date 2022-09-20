@@ -1,6 +1,6 @@
 use std::fmt::{Display, Debug};
 
-use super::{heap::HeapRef, objects::{FunData, NativeFunData}};
+use super::{heap::HeapRef, objects::{FunData, NativeFunData, ClosureData}};
 
 #[derive(PartialEq)]
 pub enum Value {
@@ -10,6 +10,7 @@ pub enum Value {
     Str(HeapRef<String>),
     Fun(HeapRef<FunData>),
     NativeFun(HeapRef<NativeFunData>),
+    Closure(HeapRef<ClosureData>),
 }
 
 impl Display for Value {
@@ -22,6 +23,7 @@ impl Display for Value {
             Self::Str(value) => write!(f, "{}", value),
             Self::Fun(value) => write!(f, "{}", value),
             Self::NativeFun(value) => write!(f, "{}", value),
+            Self::Closure(value) => write!(f, "{}", value),
         }
     }
 }
@@ -43,6 +45,7 @@ impl Clone for Value {
             Self::Str(val) => Self::Str(val.clone()),
             Self::Fun(val) => Self::Fun(val.clone()),
             Self::NativeFun(val) => Self::NativeFun(val.clone()),
+            Self::Closure(val) => Self::Closure(val.clone()),
         }
     }
 }

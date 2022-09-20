@@ -28,6 +28,7 @@ pub enum OpCode {
     JumpIfFalse,
     Loop,
     Call,
+    Closure,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -62,6 +63,7 @@ impl TryFrom<u8> for OpCode {
             v if v == OpCode::JumpIfFalse as u8 => Ok(OpCode::JumpIfFalse),
             v if v == OpCode::Loop as u8 => Ok(OpCode::Loop),
             v if v == OpCode::Call as u8 => Ok(OpCode::Call),
+            v if v == OpCode::Closure as u8 => Ok(OpCode::Closure),
             _ => Err(format!("Unknown opcode {}", value))
         }
     }
@@ -94,6 +96,7 @@ pub enum Instruction {
     JumpIfFalse{jump_distance: u16},
     Loop{jump_distance: u16},
     Call{num_args:u8},
+    Closure{value_idx: u16},
 }
 
 impl Display for Instruction {
@@ -137,6 +140,8 @@ impl Display for Instruction {
                 write!(f, "JumpIfFalse({})", jump_distance),
             Self::Call { num_args } => 
                 write!(f, "Call({num_args})"),
+            Self::Closure { value_idx } =>
+                write!(f, "Closure({value_idx})"),
         }
     }
 }

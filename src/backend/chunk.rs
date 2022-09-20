@@ -132,7 +132,11 @@ impl Chunk {
             Instruction::Call { num_args } => {
                 self.write(OpCode::Call as u8, line);
                 self.write(num_args, line);
-            }
+            },
+            Instruction::Closure { value_idx } => {
+                self.write(OpCode::Closure as u8, line);
+                self.write_u16(value_idx, line);
+            },
         }
 
         let next_offset = self.code.len();
@@ -285,6 +289,11 @@ impl Chunk {
                     None => None,
                 }
             },
+            OpCode::Closure => {
+                let value_idx = self.read_u16(next_offset);
+                next_offset += 2;
+                Some((Instruction::Closure { value_idx }, next_offset))
+            }
         }
     }
 

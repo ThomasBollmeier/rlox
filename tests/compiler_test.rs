@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref};
 
 use rlox::{frontend::compiler::Compiler, backend::{util::disassemble, objects::FunData, value::Value}};
 
@@ -229,11 +229,11 @@ fn fun_declaration() {
     println!("");
 
     match say_hello {
-        Value::Fun(fdata) => {
-            let hm = fdata.get_manager();
-            let hm = hm.borrow();
-            let fdata = hm.get_content(fdata);
-            let fun_chunk = fdata.borrow_chunk();
+        Value::Closure(closure) => {
+            let closure = closure.get_content();
+            let fun_data = closure.fun_data;
+            let fun_data = fun_data.borrow();
+            let fun_chunk = fun_data.borrow_chunk();
 
             disassemble(&fun_chunk, "fun say_hello");
         }
